@@ -1,0 +1,16 @@
+{
+  "files": {
+    "includes": [
+      "apps/**",
+      "packages/**",
+      "tests/**",
+      "playwright.config.ts",
+      "package.json",
+      "!**/.next",
+      "!**/node_modules",
+      "!**/next-env.d.ts"
+    ]
+  },
+  "formatter": { "enabled": true, "indentStyle": "space" },
+  "linter": { "enabled": true, "rules": { "recommended": true } }
+}

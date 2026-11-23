@@ -9,9 +9,11 @@
     "build": "pnpm --filter @aftercare/web build"
   },
   "devDependencies": {
-    "typescript": "5.9.3",
+    "@biomejs/biome": "2.3.5",
+    "@playwright/test": "1.56.1",
     "@types/node": "24.10.1",
     "@types/react": "19.2.2",
-    "@types/react-dom": "19.2.2"
+    "@types/react-dom": "19.2.2",
+    "typescript": "5.9.3"
   }
 }
