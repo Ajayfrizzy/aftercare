@@ -155,3 +155,38 @@ section {
 .vault dd {
   margin: 0 0 0.8rem;
 }
+.vault {
+  max-width: 68rem;
+  margin-inline: auto;
+}
+.vault > label {
+  max-width: 40rem;
+}
+.vault input[type="checkbox"] {
+  min-height: 1.25rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: var(--accent);
+}
+.vault label:has(input[type="checkbox"]) {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 44px;
+}
+.receipt-studio {
+  display: grid;
+  align-items: start;
+  gap: 1.5rem;
+}
+.receipt-studio iframe {
+  height: clamp(12rem, 32vh, 24rem);
+}
+@media (min-width: 768px) {
+  .receipt-studio {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  }
+  .receipt-studio iframe {
+    height: 48vh;
+  }
+}

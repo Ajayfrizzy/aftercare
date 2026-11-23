@@ -99,6 +99,9 @@ export default function Vault() {
       setMessage((err as Error).message);
     }
   }
+  const matches = records.filter((p) =>
+    JSON.stringify(p).toLowerCase().includes(search.toLowerCase()),
+  );
   if (!ready) return <output>Opening your vault…</output>;
   return (
     <div className="vault">
@@ -138,11 +141,14 @@ export default function Vault() {
           <label>
             Import receipt
             <input
+              id="receipt-file"
               type="file"
               accept="application/pdf,image/png,image/jpeg,text/plain"
               onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (!file) return;
+                e.currentTarget.value = "";
+                setMessage("Uploading receipt…");
                 const body = new FormData();
                 body.append("file", file);
                 try {
@@ -181,28 +187,18 @@ export default function Vault() {
               }}
             />
           </label>
-          {artifact && (
-            <div>
-              <iframe
-                title="Original receipt"
-                sandbox=""
-                src={`/api/v1/artifacts/${artifact}/preview`}
-              />
-              <a href={`/api/v1/artifacts/${artifact}/download`}>
-                Download source receipt
-              </a>
-            </div>
-          )}
-          <Preferences
-            initialGuide={register}
-            onEntry={() => {
-              setArtifact("");
-              setSelected(null);
-              setEdit(true);
-            }}
-            onImport={() => document.getElementById("receipt-file")?.click()}
-          />
-          <nav>
+          <div hidden={edit}>
+            <Preferences
+              initialGuide={register}
+              onEntry={() => {
+                setArtifact("");
+                setSelected(null);
+                setEdit(true);
+              }}
+              onImport={() => document.getElementById("receipt-file")?.click()}
+            />
+          </div>
+          <nav aria-label="Purchase vault actions">
             <button
               type="button"
               onClick={() => {
@@ -232,108 +228,119 @@ export default function Vault() {
               Sign out
             </button>
           </nav>
-          {edit ? (
-            <form
-              key={artifact || selected?.id || "new"}
-              onSubmit={submit}
-              onBlur={async (e) => {
-                const input = e.target;
-                if (
-                  !artifact ||
-                  !(input instanceof HTMLInputElement) ||
-                  !input.name
-                )
-                  return;
-                const key =
-                  input.name === "name" || input.name === "minor"
-                    ? "items." +
-                      Array.from(
-                        input.form?.querySelectorAll(
-                          `[name="${input.name}"]`,
-                        ) ?? [],
-                      ).indexOf(input) +
-                      "." +
-                      input.name
-                    : input.name;
-                try {
-                  await request(`artifacts/${artifact}/review`, "POST", {
-                    field: key,
-                    value: input.value,
-                  });
-                } catch {
-                  setMessage(
-                    "Draft field could not be saved. Review before confirming.",
-                  );
-                }
-              }}
-            >
-              <h2>{selected ? "Edit purchase" : "New purchase"}</h2>
-              {[
-                ["merchant", "Merchant", selected?.merchant],
-                ["date", "Purchase date", selected?.date],
-                ["orderNumber", "Order number", selected?.orderNumber],
-                ["currency", "Currency", selected?.currency ?? "USD"],
-                ["notes", "Notes", selected?.notes],
-              ].map(([key, label, value]) => (
-                <label key={key}>
-                  {label}
+          <div
+            className={artifact && edit ? "receipt-studio" : "vault-content"}
+          >
+            {artifact && edit && (
+              <div>
+                <iframe
+                  title="Original receipt"
+                  sandbox=""
+                  src={`/api/v1/artifacts/${artifact}/preview`}
+                />
+                <a href={`/api/v1/artifacts/${artifact}/download`}>
+                  Download source receipt
+                </a>
+              </div>
+            )}
+            {edit ? (
+              <form
+                key={artifact || selected?.id || "new"}
+                onSubmit={submit}
+                onBlur={async (e) => {
+                  const input = e.target;
+                  if (
+                    !artifact ||
+                    !(input instanceof HTMLInputElement) ||
+                    !input.name
+                  )
+                    return;
+                  const key =
+                    input.name === "name" || input.name === "minor"
+                      ? "items." +
+                        Array.from(
+                          input.form?.querySelectorAll(
+                            `[name="${input.name}"]`,
+                          ) ?? [],
+                        ).indexOf(input) +
+                        "." +
+                        input.name
+                      : input.name;
+                  try {
+                    await request(`artifacts/${artifact}/review`, "POST", {
+                      field: key,
+                      value: input.value,
+                    });
+                  } catch {
+                    setMessage(
+                      "Draft field could not be saved. Review before confirming.",
+                    );
+                  }
+                }}
+              >
+                <h2>{selected ? "Edit purchase" : "New purchase"}</h2>
+                {[
+                  ["merchant", "Merchant", selected?.merchant],
+                  ["date", "Purchase date", selected?.date],
+                  ["orderNumber", "Order number", selected?.orderNumber],
+                  ["currency", "Currency", selected?.currency ?? "USD"],
+                  ["notes", "Notes", selected?.notes],
+                ].map(([key, label, value]) => (
+                  <label key={key}>
+                    {label}
+                    <input
+                      name={key}
+                      type={key === "date" ? "date" : "text"}
+                      required={key !== "notes" && key !== "orderNumber"}
+                      defaultValue={
+                        (artifact && key ? draft[key] : undefined) ?? value
+                      }
+                    />
+                  </label>
+                ))}
+                <Items
+                  initial={
+                    selected?.items ??
+                    (artifact
+                      ? Array.from(
+                          {
+                            length: Math.max(
+                              1,
+                              ...Object.keys(draft)
+                                .filter((k) => k.startsWith("items."))
+                                .map((k) => Number(k.split(".")[1]) + 1),
+                            ),
+                          },
+                          (_, i) => ({
+                            name: draft[`items.${i}.name`] ?? "",
+                            minor: draft[`items.${i}.minor`] ?? "",
+                          }),
+                        )
+                      : [{ name: "", minor: "" }])
+                  }
+                />
+                <button type="submit">Save purchase</button>
+                <button type="button" onClick={() => setEdit(false)}>
+                  Cancel
+                </button>
+              </form>
+            ) : (
+              <>
+                <label>
+                  Search purchases
                   <input
-                    name={key}
-                    type={key === "date" ? "date" : "text"}
-                    required={key !== "notes" && key !== "orderNumber"}
-                    defaultValue={
-                      (artifact && key ? draft[key] : undefined) ?? value
-                    }
+                    type="search"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
                   />
                 </label>
-              ))}
-              <Items
-                initial={
-                  selected?.items ??
-                  (artifact
-                    ? Array.from(
-                        {
-                          length: Math.max(
-                            1,
-                            ...Object.keys(draft)
-                              .filter((k) => k.startsWith("items."))
-                              .map((k) => Number(k.split(".")[1]) + 1),
-                          ),
-                        },
-                        (_, i) => ({
-                          name: draft[`items.${i}.name`] ?? "",
-                          minor: draft[`items.${i}.minor`] ?? "",
-                        }),
-                      )
-                    : [{ name: "", minor: "" }])
-                }
-              />
-              <button type="submit">Save purchase</button>
-              <button type="button" onClick={() => setEdit(false)}>
-                Cancel
-              </button>
-            </form>
-          ) : (
-            <>
-              <label>
-                Search purchases
-                <input
-                  type="search"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </label>
-              <section>
-                {records.length === 0 ? (
-                  <p>Your vault is empty. Add your first purchase.</p>
-                ) : (
-                  records
-                    .filter((p) =>
-                      JSON.stringify(p)
-                        .toLowerCase()
-                        .includes(search.toLowerCase()),
-                    )
-                    .map((p) => (
+                <section>
+                  {records.length === 0 ? (
+                    <p>Your vault is empty. Add your first purchase.</p>
+                  ) : matches.length === 0 ? (
+                    <p>No purchases match your search.</p>
+                  ) : (
+                    matches.map((p) => (
                       <article key={p.id}>
                         <h2>{p.merchant}</h2>
                         <p>
@@ -380,10 +387,11 @@ export default function Vault() {
                         </button>
                       </article>
                     ))
-                )}
-              </section>
-            </>
-          )}
+                  )}
+                </section>
+              </>
+            )}
+          </div>
         </>
       )}
     </div>

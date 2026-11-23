@@ -1,4 +1,21 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+async function reviewLayouts(page: Page, screen: string, original: number) {
+  if (original !== 1440) return;
+  for (const width of [390, 768, 1440]) {
+    for (const colorScheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.emulateMedia({ colorScheme });
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBe(width);
+      await page.screenshot({
+        path: `test-results/design/${screen}-${width}-${colorScheme}.png`,
+        fullPage: true,
+      });
+    }
+  }
+  await page.emulateMedia({ colorScheme: "light" });
+}
 for (const width of [390, 1440]) {
   test(`receipt review and owner isolation ${width}`, async ({
     page,
@@ -27,6 +44,7 @@ for (const width of [390, 1440]) {
     await page.getByLabel("Purchase date").fill("2026-11-23");
     await page.getByLabel("Item", { exact: true }).fill("Field journal");
     await page.getByLabel("Price in minor units").fill("1400");
+    await reviewLayouts(page, "review", width);
     await page.screenshot({
       path: `docs/evidence/screens/m1-review-${width}.png`,
       fullPage: true,
@@ -35,6 +53,7 @@ for (const width of [390, 1440]) {
     await expect(
       page.getByRole("heading", { name: "Example books" }),
     ).toBeVisible();
+    await reviewLayouts(page, "vault", width);
     await page.screenshot({
       path: `docs/evidence/screens/m1-vault-${width}.png`,
       fullPage: true,
@@ -81,6 +100,10 @@ for (const width of [390, 1440]) {
     await page
       .getByRole("button", { name: "Create account", exact: true })
       .click();
+    await expect(
+      page.getByRole("button", { name: "Continue", exact: true }),
+    ).toBeVisible();
+    await reviewLayouts(page, "onboarding", width);
     await page.getByRole("button", { name: "Continue", exact: true }).click();
     await page.getByRole("button", { name: "Save choices" }).click();
     await page.getByRole("button", { name: "Enter purchase manually" }).click();
@@ -95,6 +118,7 @@ for (const width of [390, 1440]) {
       .press("Enter");
     await page.getByLabel("Item", { exact: true }).nth(1).fill("Pen");
     await page.getByLabel("Price in minor units").nth(1).fill("200");
+    await reviewLayouts(page, "editor", width);
     await page.screenshot({
       path: `docs/evidence/screens/m1-editor-${width}.png`,
       fullPage: true,
@@ -110,6 +134,7 @@ for (const width of [390, 1440]) {
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBe(width);
+    await reviewLayouts(page, "detail", width);
     await page.screenshot({
       path: `docs/evidence/screens/m1-detail-${width}.png`,
       fullPage: true,
