@@ -121,3 +121,37 @@ section {
   display: block;
   margin-block: 1rem;
 }
+.vault iframe {
+  display: block;
+  width: 100%;
+  max-width: 48rem;
+  height: 14rem;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  background: white;
+}
+.vault fieldset {
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  min-width: 0;
+  padding: 1rem;
+}
+.vault .item-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+.vault input {
+  min-width: 0;
+}
+.vault summary {
+  cursor: pointer;
+  padding-block: 0.7rem;
+}
+.vault dt {
+  font-weight: 650;
+}
+.vault dd {
+  margin: 0 0 0.8rem;
+}

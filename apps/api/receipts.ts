@@ -11,7 +11,7 @@ import { resolve, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import type { FastifyInstance } from "fastify";
 import { sessionOwner } from "./identity.ts";
-import { purchaseInput } from "@aftercare/contracts";
+import { purchaseInput, reviewPatch } from "@aftercare/contracts";
 
 function detect(bytes: Buffer) {
   if (
@@ -88,6 +88,57 @@ export async function receiptRoutes(
     }
     return reply.code(201).send({ data: { id, mime, duplicate: false } });
   });
+  app.route<{ Params: { id: string } }>({
+    method: ["GET", "POST"],
+    url: "/artifacts/:id/review",
+    handler: async (req, reply) => {
+      const owner = sessionOwner(db, req),
+        id = req.params.id;
+      if (
+        !db
+          .prepare("SELECT id FROM artifacts WHERE id=? AND user_id=?")
+          .get(id, owner)
+      )
+        return reply.code(404).send({ error: { code: "NOT_FOUND" } });
+      if (req.method === "POST") {
+        const patch = reviewPatch.safeParse(req.body);
+        if (!patch.success)
+          return reply.code(422).send({ error: { code: "INVALID_FIELD" } });
+        if (
+          db
+            .prepare(
+              "SELECT artifact_id FROM receipt_evidence WHERE artifact_id=?",
+            )
+            .get(id)
+        )
+          return reply.code(409).send({ error: { code: "ALREADY_CONFIRMED" } });
+        db.prepare(
+          "INSERT INTO review_fields(owner,artifact,field,value,source,status) VALUES(?,?,?,?,'user_entry','provisional')",
+        ).run(owner, id, patch.data.field, patch.data.value);
+      }
+      return {
+        data: db
+          .prepare(
+            "SELECT revision,artifact,field,value,source,status,created_at FROM review_fields WHERE owner=? AND artifact=? ORDER BY revision",
+          )
+          .all(owner, id),
+      };
+    },
+  });
+  app.get<{ Params: { id: string } }>(
+    "/artifacts/:id/preview",
+    async (req, reply) => {
+      const file = db
+        .prepare("SELECT id,mime FROM artifacts WHERE id=? AND user_id=?")
+        .get(req.params.id, sessionOwner(db, req));
+      if (!file) return reply.code(404).send({ error: { code: "NOT_FOUND" } });
+      return reply
+        .type(String(file.mime))
+        .header("Content-Security-Policy", "sandbox; default-src 'none'")
+        .header("X-Content-Type-Options", "nosniff")
+        .send(createReadStream(join(root, String(file.id))));
+    },
+  );
   app.get<{ Params: { id: string } }>(
     "/artifacts/:id/download",
     async (req, reply) => {
@@ -134,6 +185,23 @@ export async function receiptRoutes(
         db.prepare(
           "INSERT INTO receipt_evidence(user_id,artifact_id,purchase_id) VALUES(?,?,?)",
         ).run(owner, req.params.id, id);
+        const recordField = db.prepare(
+          "INSERT INTO review_fields(owner,artifact,field,value,source,status) VALUES(?,?,?,?,'user_review','confirmed')",
+        );
+        for (const [field, value] of Object.entries(input.data)) {
+          if (field === "items") {
+            input.data.items.forEach((item, index) => {
+              for (const [key, v] of Object.entries(item))
+                recordField.run(
+                  owner,
+                  req.params.id,
+                  `items.${index}.${key}`,
+                  v,
+                );
+            });
+          } else if (typeof value === "string")
+            recordField.run(owner, req.params.id, field, value);
+        }
         db.exec("COMMIT");
       } catch (error) {
         db.exec("ROLLBACK");

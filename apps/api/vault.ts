@@ -37,6 +37,12 @@ export async function vaultRoutes(
       return {
         data: records.map((row) => ({
           id: row.id,
+          sources: db
+            .prepare(
+              "SELECT artifact_id FROM receipt_evidence WHERE user_id=? AND purchase_id=?",
+            )
+            .all(sessionOwner(db, req), row.id)
+            .map((r) => r.artifact_id),
           ...JSON.parse(String(row.record)),
         })),
       };

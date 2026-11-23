@@ -1,8 +1,10 @@
 "use client";
+import Items from "./items";
 import Preferences from "./preferences";
 import { useState, useEffect, type FormEvent } from "react";
 
 type Purchase = {
+  sources?: string[];
   id: string;
   merchant: string;
   date: string;
@@ -13,7 +15,7 @@ type Purchase = {
   archived: boolean;
 };
 async function request(path: string, method = "GET", data?: unknown) {
-  const res = await fetch("/api/v1/" + path, {
+  const res = await fetch(`/api/v1/${path}`, {
     method,
     headers: data ? { "content-type": "application/json" } : undefined,
     body: data ? JSON.stringify(data) : undefined,
@@ -30,6 +32,7 @@ async function request(path: string, method = "GET", data?: unknown) {
   return res.status === 204 ? null : (await res.json()).data;
 }
 export default function Vault() {
+  const [draft, setDraft] = useState<Record<string, string>>({});
   const [artifact, setArtifact] = useState("");
   const [user, setUser] = useState(""),
     [ready, setReady] = useState(false),
@@ -61,7 +64,7 @@ export default function Vault() {
     try {
       if (!user) {
         const data = await request(
-          "auth/" + (register ? "register" : "login"),
+          `auth/${register ? "register" : "login"}`,
           "POST",
           { email: val("email"), password: val("password") },
         );
@@ -71,18 +74,18 @@ export default function Vault() {
       }
       await request(
         artifact
-          ? "extractions/" + artifact + "/confirm"
-          : "purchases" + (selected ? "/" + selected.id : ""),
+          ? `extractions/${artifact}/confirm`
+          : `purchases${selected ? `/${selected.id}` : ""}`,
         selected ? "PATCH" : "POST",
         {
           merchant: val("merchant"),
           date: val("date"),
           orderNumber: val("orderNumber"),
           currency: val("currency"),
-          items: [
-            { name: val("name"), minor: val("minor") },
-            ...(selected?.items.slice(1) ?? []),
-          ],
+          items: f.getAll("name").map((name, i) => ({
+            name: String(name),
+            minor: String(f.getAll("minor")[i]),
+          })),
           notes: val("notes"),
           archived: false,
         },
@@ -152,6 +155,20 @@ export default function Vault() {
                       "Upload failed. Use a supported file under 10 MB.",
                     );
                   const { data } = await response.json();
+                  const history: {
+                    field: string;
+                    value: string;
+                    status: string;
+                  }[] = await request(`artifacts/${data.id}/review`);
+                  if (history.some((row) => row.status === "confirmed")) {
+                    setMessage("This receipt has already been confirmed.");
+                    return;
+                  }
+                  setDraft(
+                    Object.fromEntries(
+                      history.map((row) => [row.field, row.value]),
+                    ),
+                  );
                   setArtifact(data.id);
                   setSelected(null);
                   setEdit(true);
@@ -165,11 +182,26 @@ export default function Vault() {
             />
           </label>
           {artifact && (
-            <a href={"/api/v1/artifacts/" + artifact + "/download"}>
-              Download source receipt
-            </a>
+            <div>
+              <iframe
+                title="Original receipt"
+                sandbox=""
+                src={`/api/v1/artifacts/${artifact}/preview`}
+              />
+              <a href={`/api/v1/artifacts/${artifact}/download`}>
+                Download source receipt
+              </a>
+            </div>
           )}
-          <Preferences />
+          <Preferences
+            initialGuide={register}
+            onEntry={() => {
+              setArtifact("");
+              setSelected(null);
+              setEdit(true);
+            }}
+            onImport={() => document.getElementById("receipt-file")?.click()}
+          />
           <nav>
             <button
               type="button"
@@ -201,15 +233,46 @@ export default function Vault() {
             </button>
           </nav>
           {edit ? (
-            <form key={selected?.id ?? "new"} onSubmit={submit}>
+            <form
+              key={artifact || selected?.id || "new"}
+              onSubmit={submit}
+              onBlur={async (e) => {
+                const input = e.target;
+                if (
+                  !artifact ||
+                  !(input instanceof HTMLInputElement) ||
+                  !input.name
+                )
+                  return;
+                const key =
+                  input.name === "name" || input.name === "minor"
+                    ? "items." +
+                      Array.from(
+                        input.form?.querySelectorAll(
+                          `[name="${input.name}"]`,
+                        ) ?? [],
+                      ).indexOf(input) +
+                      "." +
+                      input.name
+                    : input.name;
+                try {
+                  await request(`artifacts/${artifact}/review`, "POST", {
+                    field: key,
+                    value: input.value,
+                  });
+                } catch {
+                  setMessage(
+                    "Draft field could not be saved. Review before confirming.",
+                  );
+                }
+              }}
+            >
               <h2>{selected ? "Edit purchase" : "New purchase"}</h2>
               {[
                 ["merchant", "Merchant", selected?.merchant],
                 ["date", "Purchase date", selected?.date],
                 ["orderNumber", "Order number", selected?.orderNumber],
                 ["currency", "Currency", selected?.currency ?? "USD"],
-                ["name", "Item", selected?.items[0]?.name],
-                ["minor", "Price in minor units", selected?.items[0]?.minor],
                 ["notes", "Notes", selected?.notes],
               ].map(([key, label, value]) => (
                 <label key={key}>
@@ -218,10 +281,33 @@ export default function Vault() {
                     name={key}
                     type={key === "date" ? "date" : "text"}
                     required={key !== "notes" && key !== "orderNumber"}
-                    defaultValue={value}
+                    defaultValue={
+                      (artifact && key ? draft[key] : undefined) ?? value
+                    }
                   />
                 </label>
               ))}
+              <Items
+                initial={
+                  selected?.items ??
+                  (artifact
+                    ? Array.from(
+                        {
+                          length: Math.max(
+                            1,
+                            ...Object.keys(draft)
+                              .filter((k) => k.startsWith("items."))
+                              .map((k) => Number(k.split(".")[1]) + 1),
+                          ),
+                        },
+                        (_, i) => ({
+                          name: draft[`items.${i}.name`] ?? "",
+                          minor: draft[`items.${i}.minor`] ?? "",
+                        }),
+                      )
+                    : [{ name: "", minor: "" }])
+                }
+              />
               <button type="submit">Save purchase</button>
               <button type="button" onClick={() => setEdit(false)}>
                 Cancel
@@ -253,9 +339,39 @@ export default function Vault() {
                         <p>
                           {p.date} · {p.items.map((i) => i.name).join(", ")}
                         </p>
+                        <details>
+                          <summary>Purchase details</summary>
+                          <dl>
+                            <dt>Order number</dt>
+                            <dd>{p.orderNumber || "Unrecorded"}</dd>
+                            <dt>Items and amounts</dt>
+                            <dd>
+                              <ul>
+                                {p.items.map((item, i) => (
+                                  // biome-ignore lint/suspicious/noArrayIndexKey: Confirmed receipt positions identify immutable display rows within this snapshot.
+                                  <li key={i}>
+                                    {item.name} · {item.minor} minor units (
+                                    {p.currency})
+                                  </li>
+                                ))}
+                              </ul>
+                            </dd>
+                            <dt>Notes</dt>
+                            <dd>{p.notes || "None"}</dd>
+                          </dl>
+                          {p.sources?.map((id) => (
+                            <a
+                              key={id}
+                              href={`/api/v1/artifacts/${id}/preview`}
+                            >
+                              View source receipt
+                            </a>
+                          ))}
+                        </details>
                         <button
                           type="button"
                           onClick={() => {
+                            setArtifact("");
                             setSelected(p);
                             setEdit(true);
                           }}

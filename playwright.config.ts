@@ -12,8 +12,7 @@ export default defineConfig({
       port: 3101,
       env: {
         APP_BASE_URL: "http://127.0.0.1:3100",
-        PRIVATE_UPLOAD_DIR:
-          "/tmp/aftercare-m1-" + randomBytes(10).toString("hex"),
+        PRIVATE_UPLOAD_DIR: `/tmp/aftercare-m1-${randomBytes(10).toString("hex")}`,
         SQLITE_PATH: ":memory:",
         DEMO_SECRET: process.env.M0_PASSWORD,
       },

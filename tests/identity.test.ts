@@ -76,7 +76,7 @@ test("manual purchase, duplicate rejection, owner corrections, archive and delet
   const result = await app.inject(create);
   assert.equal(result.statusCode, 201);
   assert.equal((await app.inject(create)).statusCode, 409);
-  const url = create.url + "/" + result.json().data.id;
+  const url = `${create.url}/${result.json().data.id}`;
   assert.equal(
     (
       await app.inject({
@@ -90,7 +90,7 @@ test("manual purchase, duplicate rejection, owner corrections, archive and delet
   );
   assert.equal(
     (
-      await app.inject({ url: create.url + "?archived=true&q=Book", headers })
+      await app.inject({ url: `${create.url}?archived=true&q=Book`, headers })
     ).json().data.length,
     1,
   );

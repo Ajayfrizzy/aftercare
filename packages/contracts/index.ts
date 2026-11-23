@@ -59,3 +59,11 @@ export const preferences = z.strictObject({
   researchConsent: z.boolean(),
   extractionConsent: z.boolean(),
 });
+export const reviewPatch = z.strictObject({
+  field: z
+    .string()
+    .regex(
+      /^(merchant|date|currency|orderNumber|notes|items\.(0|[1-9][0-9]?)\.(name|minor))$/,
+    ),
+  value: z.string().max(4000),
+});

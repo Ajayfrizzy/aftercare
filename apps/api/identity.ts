@@ -1,3 +1,4 @@
+import { verifyAudit } from "../../packages/db/audit.ts";
 import {
   createHash,
   randomBytes,
@@ -25,7 +26,7 @@ export function identityRoutes(app: FastifyInstance, db: DatabaseSync) {
   const origin = process.env.APP_BASE_URL ?? "http://localhost:3000";
   const attempts = new Map<string, { until: number; count: number }>();
   for (const action of ["register", "login"] as const) {
-    app.post("/api/v1/auth/" + action, async (req, reply) => {
+    app.post(`/api/v1/auth/${action}`, async (req, reply) => {
       if (req.headers.origin !== origin)
         return reply.code(403).send({ error: { code: "CSRF" } });
       const parsed = credentials.safeParse(req.body);
@@ -63,7 +64,7 @@ export function identityRoutes(app: FastifyInstance, db: DatabaseSync) {
             .prepare(
               "INSERT INTO users(id,email,password_hash) VALUES(?,?,?) ON CONFLICT(email) DO NOTHING",
             )
-            .run(id, email, salt + "." + key.toString("hex")).changes
+            .run(id, email, `${salt}.${key.toString("hex")}`).changes
         ) {
           db.exec("ROLLBACK");
           return reply
@@ -90,6 +91,13 @@ export function identityRoutes(app: FastifyInstance, db: DatabaseSync) {
         .send({ data: { id, email } });
     });
   }
+  app.get("/api/v1/me/audit", async (req, reply) => {
+    reply.header("cache-control", "no-store");
+    const owner = sessionOwner(db, req);
+    if (!owner)
+      return reply.code(401).send({ error: { code: "UNAUTHORIZED" } });
+    return { data: verifyAudit(db, owner) };
+  });
   app.get("/api/v1/me", async (req, reply) => {
     reply.header("cache-control", "no-store");
     const user = db
