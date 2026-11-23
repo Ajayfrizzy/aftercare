@@ -12,11 +12,19 @@ export function openDatabase(path: string) {
       db.exec(
         "CREATE TABLE workspace(owner TEXT PRIMARY KEY, title TEXT NOT NULL); INSERT INTO workspace VALUES ('demo', 'Your protection journal'); PRAGMA user_version=1",
       );
-    } else if (version !== 1 && version !== 2) {
-      throw new Error("Unsupported database version");
     }
-    if (version !== 2)
-      db.exec(readFileSync(new URL("./identity.sql", import.meta.url), "utf8"));
+    const migrations = [
+      "identity.sql",
+      "vault.sql",
+      "receipts.sql",
+      "preferences.sql",
+    ];
+    if (typeof version !== "number" || version > migrations.length + 1)
+      throw new Error("Unsupported database version");
+    for (const [index, file] of migrations.entries()) {
+      if (version < index + 2)
+        db.exec(readFileSync(new URL(file, import.meta.url), "utf8"));
+    }
     db.exec("COMMIT");
     return db;
   } catch (error) {

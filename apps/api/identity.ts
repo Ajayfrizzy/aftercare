@@ -8,7 +8,7 @@ import {
 import { promisify } from "node:util";
 import type { DatabaseSync } from "node:sqlite";
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { credentials } from "@aftercare/contracts";
+import { credentials, preferences } from "@aftercare/contracts";
 
 const derive = promisify(scrypt);
 const lifetime = 7 * 24 * 3600;
@@ -94,12 +94,27 @@ export function identityRoutes(app: FastifyInstance, db: DatabaseSync) {
     reply.header("cache-control", "no-store");
     const user = db
       .prepare(
-        "SELECT users.id,email FROM sessions JOIN users ON users.id=user_id WHERE token_hash=? AND expires_at>?",
+        "SELECT users.id,email,preferences FROM sessions JOIN users ON users.id=user_id WHERE token_hash=? AND expires_at>?",
       )
       .get(digest(tokenOf(req)), Date.now());
     return user
-      ? { data: user }
+      ? { data: { ...user, preferences: JSON.parse(String(user.preferences)) } }
       : reply.code(401).send({ error: { code: "UNAUTHORIZED" } });
+  });
+  app.patch("/api/v1/me/preferences", async (req, reply) => {
+    const owner = sessionOwner(db, req);
+    if (!owner)
+      return reply.code(401).send({ error: { code: "UNAUTHORIZED" } });
+    if (req.headers.origin !== origin)
+      return reply.code(403).send({ error: { code: "CSRF" } });
+    const input = preferences.safeParse(req.body);
+    if (!input.success)
+      return reply.code(422).send({ error: { code: "INVALID_PREFERENCES" } });
+    db.prepare("UPDATE users SET preferences=? WHERE id=?").run(
+      JSON.stringify(input.data),
+      owner,
+    );
+    return { data: input.data };
   });
   app.post("/api/v1/auth/logout", async (req, reply) => {
     if (req.headers.origin !== origin)
@@ -117,4 +132,10 @@ function cookie(token: string, age: number) {
     "; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=" +
     age
   );
+}
+export function sessionOwner(db: DatabaseSync, req: FastifyRequest) {
+  const row = db
+    .prepare("SELECT user_id FROM sessions WHERE token_hash=? AND expires_at>?")
+    .get(digest(tokenOf(req)), Date.now());
+  return String(row?.user_id ?? "");
 }

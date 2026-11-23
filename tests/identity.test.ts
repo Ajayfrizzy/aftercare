@@ -45,3 +45,58 @@ test("registration, origin enforcement, login, profile and revoked session", asy
     401,
   );
 });
+
+test("manual purchase, duplicate rejection, owner corrections, archive and delete", async (t) => {
+  const app = createApp(":memory:", "x".repeat(32));
+  t.after(() => app.close());
+  const origin = "http://localhost:3000";
+  const account = await app.inject({
+    method: "POST",
+    url: "/api/v1/auth/register",
+    headers: { origin },
+    payload: { email: "owner@example.org", password: "synthetic-secret" },
+  });
+  const headers = {
+    origin,
+    cookie: String(account.headers["set-cookie"]).split(";")[0],
+  };
+  const payload = {
+    merchant: "Example",
+    date: "2026-11-23",
+    currency: "USD",
+    orderNumber: "order1",
+    items: [{ name: "Book", minor: "1500" }],
+  };
+  const create = {
+    method: "POST" as const,
+    url: "/api/v1/purchases",
+    headers,
+    payload,
+  };
+  const result = await app.inject(create);
+  assert.equal(result.statusCode, 201);
+  assert.equal((await app.inject(create)).statusCode, 409);
+  const url = create.url + "/" + result.json().data.id;
+  assert.equal(
+    (
+      await app.inject({
+        method: "PATCH",
+        url,
+        headers,
+        payload: { ...payload, archived: true },
+      })
+    ).statusCode,
+    200,
+  );
+  assert.equal(
+    (
+      await app.inject({ url: create.url + "?archived=true&q=Book", headers })
+    ).json().data.length,
+    1,
+  );
+  assert.equal(
+    (await app.inject({ method: "DELETE", url, headers })).statusCode,
+    204,
+  );
+  assert.equal((await app.inject({ url, headers })).statusCode, 404);
+});

@@ -10,7 +10,13 @@ export default defineConfig({
     {
       command: "node tests/browser/api-fixture.ts",
       port: 3101,
-      env: { SQLITE_PATH: ":memory:", DEMO_SECRET: process.env.M0_PASSWORD },
+      env: {
+        APP_BASE_URL: "http://127.0.0.1:3100",
+        PRIVATE_UPLOAD_DIR:
+          "/tmp/aftercare-m1-" + randomBytes(10).toString("hex"),
+        SQLITE_PATH: ":memory:",
+        DEMO_SECRET: process.env.M0_PASSWORD,
+      },
     },
     {
       command:

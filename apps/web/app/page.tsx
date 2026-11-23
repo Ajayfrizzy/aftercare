@@ -10,6 +10,7 @@ export default function Landing() {
       <Link href="/journal" prefetch={false}>
         Open private demo →
       </Link>
+      <Link href="/vault">My purchase vault</Link>
     </>
   );
 }
