@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "name": "@aftercare/ui",
+  "type": "module",
+  "dependencies": {},
+  "exports": "./tokens.css"
+}

@@ -1,0 +1,17 @@
+{
+  "private": true,
+  "name": "@aftercare/web",
+  "type": "module",
+  "dependencies": {
+    "next": "16.2.6",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "@aftercare/ui": "workspace:*",
+    "@aftercare/contracts": "workspace:*"
+  },
+  "scripts": {
+    "build": "next build --webpack",
+    "dev": "next dev",
+    "start": "next start"
+  }
+}

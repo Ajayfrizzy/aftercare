@@ -1,0 +1,13 @@
+{
+  "private": true,
+  "name": "@aftercare/api",
+  "type": "module",
+  "dependencies": {
+    "fastify": "5.8.5",
+    "@aftercare/contracts": "workspace:*",
+    "@aftercare/db": "workspace:*"
+  },
+  "scripts": {
+    "start": "node server.ts"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "private": true,
+  "name": "@aftercare/connectors",
+  "type": "module",
+  "dependencies": {}
+}

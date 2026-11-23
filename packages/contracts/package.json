@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "name": "@aftercare/contracts",
+  "type": "module",
+  "dependencies": {
+    "zod": "4.1.12"
+  },
+  "exports": "./index.ts"
+}
