@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 
 export function openDatabase(path: string) {
@@ -11,9 +12,11 @@ export function openDatabase(path: string) {
       db.exec(
         "CREATE TABLE workspace(owner TEXT PRIMARY KEY, title TEXT NOT NULL); INSERT INTO workspace VALUES ('demo', 'Your protection journal'); PRAGMA user_version=1",
       );
-    } else if (version !== 1) {
+    } else if (version !== 1 && version !== 2) {
       throw new Error("Unsupported database version");
     }
+    if (version !== 2)
+      db.exec(readFileSync(new URL("./identity.sql", import.meta.url), "utf8"));
     db.exec("COMMIT");
     return db;
   } catch (error) {

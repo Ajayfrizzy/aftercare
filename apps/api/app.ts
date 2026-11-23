@@ -1,3 +1,4 @@
+import { identityRoutes } from "./identity.ts";
 import Fastify from "fastify";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { overview, overviewQuery } from "@aftercare/contracts";
@@ -13,6 +14,7 @@ export function createApp(path: string, secret: string) {
   );
   const db = openDatabase(path);
   const app = Fastify({ logger: false, bodyLimit: 1024 });
+  identityRoutes(app, db);
   app.addHook("onClose", async () => db.close());
   app.get("/api/v1/overview", async (request, reply) => {
     reply.header("cache-control", "private, no-store");

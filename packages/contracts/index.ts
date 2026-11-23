@@ -6,3 +6,11 @@ export const overview = z.strictObject({
   lastCheckedAt: z.null(),
 });
 export const overviewQuery = z.strictObject({});
+
+export const credentials = z.strictObject({
+  email: z
+    .email()
+    .max(254)
+    .transform((value) => value.toLowerCase()),
+  password: z.string().min(12).max(128),
+});
