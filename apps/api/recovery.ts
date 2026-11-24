@@ -89,6 +89,18 @@ export async function recoveryRoutes(
           reason: row.reason,
           evidence,
           draft,
+          activeApproval: draft
+            ? (db
+                .prepare(
+                  "SELECT id,expires_at FROM recovery_approvals WHERE case_id=? AND version=? AND content_hash=? AND expires_at>? AND consumed_at IS NULL AND revoked_at IS NULL ORDER BY expires_at DESC LIMIT 1",
+                )
+                .get(
+                  row.observation_id,
+                  draft.version,
+                  draft.content_hash,
+                  new Date().toISOString(),
+                ) ?? null)
+            : null,
           exports,
           suggestion:
             "Please review my purchase with " +

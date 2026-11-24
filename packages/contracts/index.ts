@@ -175,3 +175,6 @@ export const monitoringPreferences = z.strictObject({
   paused: z.boolean(),
   reminders: z.boolean(),
 });
+export const deleteAccount = credentials.extend({
+  confirmation: z.literal("DELETE"),
+});

@@ -186,3 +186,120 @@ test("private multipart validation, quota limit, duplicate and isolated preview"
     ["provisional", "provisional", "confirmed"],
   );
 });
+
+test("account deletion rolls back on failure, isolates owners and resumes file cleanup", async (t) => {
+  const { randomUUID } = await import("node:crypto");
+  const { mkdirSync, writeFileSync, existsSync, rmdirSync } = await import(
+    "node:fs"
+  );
+  const { cleanReceipts } = await import("../apps/api/purge.ts");
+  const dir = mkdtempSync(join(tmpdir(), "aftercare-delete-"));
+  t.after(() => rmSync(dir, { recursive: true }));
+  const old = process.env.PRIVATE_UPLOAD_DIR;
+  process.env.PRIVATE_UPLOAD_DIR = dir;
+  const path = join(dir, "db");
+  const app = createApp(path, "x".repeat(32));
+  if (old === undefined) delete process.env.PRIVATE_UPLOAD_DIR;
+  else process.env.PRIVATE_UPLOAD_DIR = old;
+  t.after(() => app.close());
+  const db = openDatabase(path);
+  t.after(() => db.close());
+  const origin = "http://localhost:3000",
+    password = "synthetic password";
+  async function account(email: string) {
+    const r = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/register",
+      headers: { origin },
+      payload: { email, password },
+    });
+    return {
+      id: r.json().data.id,
+      cookie: String(r.headers["set-cookie"]).split(";")[0],
+    };
+  }
+  const email = "delete@example.org",
+    a = await account(email),
+    b = await account("keep@example.org");
+  const addFile = (owner: string) => {
+    const id = randomUUID();
+    db.prepare(
+      "INSERT INTO artifacts(id,user_id,sha,mime,bytes) VALUES(?,?,?,'text/plain',1)",
+    ).run(id, owner, id);
+    return id;
+  };
+  const gone = addFile(a.id),
+    keep = addFile(b.id);
+  mkdirSync(join(dir, gone));
+  writeFileSync(join(dir, keep), "B");
+  db.prepare("INSERT INTO purchases(id,user_id,record) VALUES(?,?,'{}')").run(
+    randomUUID(),
+    a.id,
+  );
+  const req = {
+    method: "POST" as const,
+    url: "/api/v1/me/delete-request",
+    headers: { origin, cookie: a.cookie },
+    payload: { email, password, confirmation: "DELETE" },
+  };
+  assert.equal(
+    (
+      await app.inject({
+        ...req,
+        headers: { origin: "https://example.invalid", cookie: a.cookie },
+      })
+    ).statusCode,
+    403,
+  );
+  assert.equal(
+    (
+      await app.inject({
+        ...req,
+        payload: { ...req.payload, password: "wrong test password" },
+      })
+    ).statusCode,
+    403,
+  );
+  db.exec(
+    "CREATE TRIGGER interrupt_purge BEFORE DELETE ON users BEGIN SELECT RAISE(ABORT,'interrupted'); END",
+  );
+  assert.equal((await app.inject(req)).statusCode, 500);
+  assert.equal(
+    db.prepare("SELECT count(*) AS n FROM purchases WHERE user_id=?").get(a.id)
+      ?.n,
+    1,
+  );
+  assert.equal(
+    db.prepare("SELECT count(*) AS n FROM pending_file_deletions").get()?.n,
+    0,
+  );
+  db.exec("DROP TRIGGER interrupt_purge");
+  assert.equal((await app.inject(req)).statusCode, 202);
+  assert.equal(
+    (await app.inject({ url: "/api/v1/me", headers: { cookie: a.cookie } }))
+      .statusCode,
+    401,
+  );
+  assert.equal(
+    (await app.inject({ url: "/api/v1/me", headers: { cookie: b.cookie } }))
+      .statusCode,
+    200,
+  );
+  assert.deepEqual(db.prepare("PRAGMA foreign_key_check").all(), []);
+  const now = Date.now();
+  cleanReceipts(db, dir, now);
+  assert.equal(
+    db.prepare("SELECT attempts FROM pending_file_deletions").get()?.attempts,
+    1,
+  );
+  rmdirSync(join(dir, gone));
+  writeFileSync(join(dir, gone), "A");
+  const reopened = openDatabase(path);
+  try {
+    cleanReceipts(reopened, dir, now + 61000);
+  } finally {
+    reopened.close();
+  }
+  assert.equal(existsSync(join(dir, gone)), false);
+  assert.equal(existsSync(join(dir, keep)), true);
+});

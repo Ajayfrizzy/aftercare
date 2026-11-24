@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+import { cleanReceipts } from "./purge.ts";
 import { recoveryRoutes } from "./recovery.ts";
 import { checkDue, notifyDue } from "../../packages/agent/recovery.ts";
 import { protectionRoutes } from "./protection.ts";
@@ -19,8 +21,12 @@ export function createApp(path: string, secret: string) {
   );
   const db = openDatabase(path);
   const app = Fastify({ logger: false, bodyLimit: 1024 });
+  const storageRoot = resolve(
+    process.env.PRIVATE_UPLOAD_DIR ?? "private-uploads",
+  );
   const timer = setInterval(() => {
     try {
+      cleanReceipts(db, storageRoot);
       notifyDue(db);
       checkDue(db);
     } catch {
@@ -29,7 +35,7 @@ export function createApp(path: string, secret: string) {
   }, 5000);
   timer.unref();
   app.addHook("onClose", async () => clearInterval(timer));
-  identityRoutes(app, db);
+  identityRoutes(app, db, storageRoot);
   app.register(recoveryRoutes, { prefix: "/api/v1/cases", db });
   app.register(protectionRoutes, { prefix: "/api/v1", db });
   app.register(receiptRoutes, { prefix: "/api/v1", db });

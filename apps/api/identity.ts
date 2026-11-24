@@ -9,7 +9,7 @@ import {
 import { promisify } from "node:util";
 import type { DatabaseSync } from "node:sqlite";
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { credentials, preferences } from "@aftercare/contracts";
+import { credentials, preferences, deleteAccount } from "@aftercare/contracts";
 
 const derive = promisify(scrypt);
 const lifetime = 7 * 24 * 3600;
@@ -27,9 +27,21 @@ function tokenOf(req: FastifyRequest) {
     ?.slice(sessionCookie.length + 1);
   return value && /^[a-f0-9]{64}$/.test(value) ? value : "";
 }
-export function identityRoutes(app: FastifyInstance, db: DatabaseSync) {
+export function identityRoutes(
+  app: FastifyInstance,
+  db: DatabaseSync,
+  storageRoot: string,
+) {
   const origin = process.env.APP_BASE_URL ?? "http://localhost:3000";
   const attempts = new Map<string, { until: number; count: number }>();
+  function limited(ip: string) {
+    const now = Date.now();
+    for (const [key, entry] of attempts)
+      if (entry.until <= now) attempts.delete(key);
+    const entry = attempts.get(ip) ?? { until: now + 60000, count: 0 };
+    attempts.set(ip, entry);
+    return ++entry.count > 10;
+  }
   for (const action of ["register", "login"] as const) {
     app.post(`/api/v1/auth/${action}`, async (req, reply) => {
       if (req.headers.origin !== origin)
@@ -39,13 +51,9 @@ export function identityRoutes(app: FastifyInstance, db: DatabaseSync) {
         return reply
           .code(422)
           .send({ error: { code: "INVALID_CREDENTIAL_FIELDS" } });
-      const now = Date.now();
-      for (const [ip, entry] of attempts)
-        if (entry.until <= now) attempts.delete(ip);
-      const window = attempts.get(req.ip) ?? { until: now + 60000, count: 0 };
-      attempts.set(req.ip, window);
-      if (++window.count > 10)
+      if (limited(req.ip))
         return reply.code(429).send({ error: { code: "RATE_LIMIT" } });
+      const now = Date.now();
       const { email, password } = parsed.data;
       const row = db
         .prepare("SELECT id,password_hash FROM users WHERE email=?")
@@ -96,6 +104,50 @@ export function identityRoutes(app: FastifyInstance, db: DatabaseSync) {
         .send({ data: { id, email } });
     });
   }
+  app.post("/api/v1/me/delete-request", async (req, reply) => {
+    reply.header("cache-control", "no-store");
+    const owner = sessionOwner(db, req);
+    if (!owner)
+      return reply.code(401).send({ error: { code: "UNAUTHORIZED" } });
+    if (req.headers.origin !== origin)
+      return reply.code(403).send({ error: { code: "CSRF" } });
+    const input = deleteAccount.safeParse(req.body);
+    if (!input.success)
+      return reply.code(422).send({ error: { code: "CONFIRMATION_REQUIRED" } });
+    if (limited(req.ip))
+      return reply.code(429).send({ error: { code: "RATE_LIMIT" } });
+    const row = db
+      .prepare("SELECT email,password_hash FROM users WHERE id=?")
+      .get(owner);
+    const [salt, hash] = String(row?.password_hash).split(".");
+    const key = (await derive(input.data.password, salt, 64)) as Buffer;
+    if (
+      row?.email !== input.data.email ||
+      !timingSafeEqual(key, Buffer.from(hash, "hex"))
+    )
+      return reply.code(403).send({ error: { code: "REAUTH_FAILED" } });
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      if (sessionOwner(db, req) !== owner) {
+        db.exec("ROLLBACK");
+        return reply.code(401).send({ error: { code: "UNAUTHORIZED" } });
+      }
+      db.prepare(
+        "INSERT INTO pending_file_deletions(artifact_id,storage_root) SELECT id,? FROM artifacts WHERE user_id=?",
+      ).run(storageRoot, owner);
+      // The purchase deletion audit trigger requires the owner to exist during deletion.
+      db.prepare("DELETE FROM purchases WHERE user_id=?").run(owner);
+      db.prepare("DELETE FROM users WHERE id=?").run(owner);
+      db.exec("COMMIT");
+    } catch (e) {
+      db.exec("ROLLBACK");
+      throw e;
+    }
+    return reply
+      .header("set-cookie", cookie("", 0))
+      .code(202)
+      .send({ data: { status: "account_removed", receiptCleanup: "queued" } });
+  });
   app.get("/api/v1/exports/my-data", async (req, reply) => {
     reply.header("cache-control", "private, no-store");
     const owner = sessionOwner(db, req);
@@ -135,7 +187,14 @@ export function identityRoutes(app: FastifyInstance, db: DatabaseSync) {
           "content-disposition",
           'attachment; filename="aftercare-records.json"',
         )
-        .send({ formatVersion: 1, exportedAt: new Date().toISOString(), data });
+        .send({
+          formatVersion: 1,
+          attachmentsIncluded: false,
+          receiptFiles:
+            "Download originals separately through authenticated receipt links.",
+          exportedAt: new Date().toISOString(),
+          data,
+        });
     } catch (error) {
       db.exec("ROLLBACK");
       throw error;

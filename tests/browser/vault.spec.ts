@@ -267,3 +267,43 @@ test("review, approve and download an evidence-linked recovery draft", async ({
   await page.getByRole("link", { name: "Agent activity" }).click();
   await expect(page.getByText(/exported not sent/)).toBeVisible();
 });
+
+test("privacy export and confirmed account deletion", async ({ page }) => {
+  await page.goto("/settings");
+  await expect(
+    page.getByRole("link", { name: "Sign in", exact: true }),
+  ).toBeVisible();
+  const email = "privacy@example.invalid",
+    password = "synthetic privacy password";
+  expect(
+    await page.evaluate(
+      async (credentials) =>
+        (
+          await fetch("/api/v1/auth/register", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(credentials),
+          })
+        ).status,
+      { email, password },
+    ),
+  ).toBe(201);
+  await page.reload();
+  await page.getByText("Prepare private export").press("Enter");
+  const download = page.waitForEvent("download");
+  await page.getByRole("link", { name: "Download records" }).click();
+  expect((await download).suggestedFilename()).toBe("aftercare-records.json");
+  await page.getByText("Delete my account", { exact: true }).press("Enter");
+  await page.getByLabel("Account email").fill(email);
+  await page.getByLabel("Current password").fill(password);
+  await page.getByLabel("Type DELETE to confirm").fill("DELETE");
+  await page
+    .getByRole("button", { name: "Permanently delete account" })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Account deleted" }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(async () => (await fetch("/api/v1/me")).status),
+  ).toBe(401);
+});

@@ -7,6 +7,7 @@ type Case = {
   reason: string;
   evidence: { merchant: string; source: string; excerpt: string };
   suggestion: string;
+  activeApproval: { id: string; expires_at: string } | null;
   draft: {
     version: number;
     content_hash: string;
@@ -26,7 +27,15 @@ export function CaseWorkspace({
   const load = useCallback(async () => {
     const r = await fetch("/api/v1/cases", { cache: "no-store" });
     if (!r.ok) throw Error("Sign in to view cases.");
-    setCases((await r.json()).data);
+    const records: Case[] = (await r.json()).data;
+    setCases(records);
+    setApprovals(
+      Object.fromEntries(
+        records.flatMap((c) =>
+          c.activeApproval ? [[c.id, c.activeApproval.id]] : [],
+        ),
+      ),
+    );
   }, []);
   useEffect(() => {
     load()
