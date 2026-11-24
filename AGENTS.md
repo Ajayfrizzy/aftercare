@@ -43,3 +43,6 @@ You are building **Aftercare**, a serious, user-controlled **personal** post-pur
 - `$aftercare-ui-ux`: distinctive high-quality design execution.
 - `$aftercare-qa-evidence`: objective testing and evidence.
 - `$aftercare-release`: deploy, cost controls, demo and submission.
+
+## Owner workflow update
+All milestone work uses branches in ~/Desktop/aftercare. Commit or preserve unfinished work before switching branches. Creating another project folder or worktree requires explicit owner approval. Run automated checks throughout development. Defer owner-operated browser, VoiceOver and milestone acceptance sessions until comprehensive final testing. Continue local implementation in milestone order. Push, staging/main merge, paid resources and deployment require separate approval.
