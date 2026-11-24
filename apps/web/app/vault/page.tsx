@@ -70,6 +70,7 @@ export default function Vault() {
       .catch(() => {})
       .finally(() => setReady(true));
   }, []);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: revision explicitly refreshes observations after a save or retry.
   useEffect(() => {
     let current = true;
     if (user && (risk || kindFilter)) {

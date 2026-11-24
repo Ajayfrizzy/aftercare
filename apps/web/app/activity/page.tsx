@@ -52,7 +52,7 @@ export default function ActivityPage() {
             <h2>Protection checks</h2>
             {!data.jobs.length && <p>No checks recorded.</p>}
             {data.jobs.map((j) => (
-              <article key={j.id}>
+              <article id={"job-" + j.id} key={j.id}>
                 <strong>
                   {j.failed_at
                     ? "Needs investigation"

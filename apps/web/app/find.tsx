@@ -1,7 +1,13 @@
 "use client";
 import { useRef, useState } from "react";
 import Link from "next/link";
-type Hit = { label: string; href: string };
+type Hit = {
+  label: string;
+  href: string;
+  id?: string;
+  seen?: number;
+  stamp?: string;
+};
 export default function Find() {
   const [query, setQuery] = useState(""),
     [hits, setHits] = useState<Hit[]>([]),
@@ -31,9 +37,9 @@ export default function Find() {
       setHits(data);
       setStatus(
         data.length
-          ? data.length + (reminders ? " reminders." : " matching records.")
+          ? data.length + (reminders ? " notifications." : " matching records.")
           : reminders
-            ? "No due follow-up reminders."
+            ? "No journal notifications yet."
             : "No matching records.",
       );
     } catch (e) {
@@ -66,8 +72,44 @@ export default function Find() {
       <output>{status}</output>
       <ul>
         {hits.map((h) => (
-          <li key={h.href + h.label}>
+          <li key={h.id ?? h.href + h.label}>
             <Link href={h.href}>{h.label}</Link>
+            {h.id && (
+              <>
+                <time>{h.stamp}</time>
+                <span>{h.seen ? "Read" : "Unread"}</span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const current = generation.current;
+                    try {
+                      const res = await fetch(
+                        "/api/v1/cases/notification-read",
+                        {
+                          method: "POST",
+                          headers: { "content-type": "application/json" },
+                          body: JSON.stringify({ id: h.id, seen: !h.seen }),
+                        },
+                      );
+                      if (!res.ok) throw Error();
+                      if (current === generation.current)
+                        setHits((rows) =>
+                          rows.map((row) =>
+                            row.id === h.id
+                              ? { ...row, seen: Number(!h.seen) }
+                              : row,
+                          ),
+                        );
+                    } catch {
+                      if (current === generation.current)
+                        setStatus("Could not update notification. Try again.");
+                    }
+                  }}
+                >
+                  Mark as {h.seen ? "unread" : "read"}
+                </button>
+              </>
+            )}
           </li>
         ))}
       </ul>

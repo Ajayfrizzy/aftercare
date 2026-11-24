@@ -74,19 +74,10 @@ export async function recoveryRoutes(
       if (req.query.mode === "reminders") {
         const rows = db
           .prepare(
-            "SELECT a.case_id,e.notified_at,o.record FROM recovery_exports e JOIN recovery_approvals a ON a.id=e.approval_id JOIN protection_observations o ON o.id=a.case_id WHERE o.user_id=? AND e.notified_at IS NOT NULL ORDER BY e.notified_at DESC LIMIT 50",
+            "SELECT n.id,n.label,n.href,n.stamp,r.event_id IS NOT NULL AS seen FROM journal_notifications n LEFT JOIN notification_reads r ON r.user_id=n.user_id AND r.event_id=n.id WHERE n.user_id=? ORDER BY datetime(n.stamp) DESC,n.id DESC LIMIT 100",
           )
           .all(owner);
-        return {
-          data: rows.map((r) => ({
-            label:
-              "Follow up with " +
-              JSON.parse(String(r.record)).merchant +
-              " · " +
-              r.notified_at,
-            href: "/cases#case-" + r.case_id,
-          })),
-        };
+        return { data: rows };
       }
       if (typeof query !== "string" || !query.trim() || query.length > 120)
         return reply.code(422).send({ error: { code: "INVALID_QUERY" } });
@@ -99,6 +90,28 @@ export async function recoveryRoutes(
       return { data: rows };
     },
   );
+  app.post("/notification-read", async (req, reply) => {
+    const { id, seen } = (req.body ?? {}) as { id?: unknown; seen?: unknown };
+    if (typeof id !== "string" || id.length > 128 || typeof seen !== "boolean")
+      return reply.code(422).send();
+    const owner = sessionOwner(db, req);
+    if (
+      !db
+        .prepare("SELECT 1 FROM journal_notifications WHERE user_id=? AND id=?")
+        .get(owner, id)
+    )
+      return reply.code(404).send();
+    if (seen)
+      db.prepare("INSERT OR IGNORE INTO notification_reads VALUES(?,?)").run(
+        owner,
+        id,
+      );
+    else
+      db.prepare(
+        "DELETE FROM notification_reads WHERE user_id=? AND event_id=?",
+      ).run(owner, id);
+    return reply.code(204).send();
+  });
   app.get("/activity", async (req) => {
     const owner = sessionOwner(db, req);
     const events = db

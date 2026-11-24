@@ -288,6 +288,12 @@ test("expired recovery lease resumes and an approved export is single-use", asyn
     { claimDue, checkDue } = await import("../packages/agent/recovery.ts");
   const dir = mkdtempSync(join(tmpdir(), "aftercare-recovery-"));
   t.after(() => rmSync(dir, { recursive: true }));
+  const previousRoot = process.env.PRIVATE_UPLOAD_DIR;
+  process.env.PRIVATE_UPLOAD_DIR = dir;
+  t.after(() => {
+    if (previousRoot === undefined) delete process.env.PRIVATE_UPLOAD_DIR;
+    else process.env.PRIVATE_UPLOAD_DIR = previousRoot;
+  });
   const path = join(dir, "db");
   const app = createApp(path, "x".repeat(32));
   t.after(() => app.close());
@@ -304,7 +310,39 @@ test("expired recovery lease resumes and an approved export is single-use", asyn
   };
   const post = (url: string, payload: Record<string, unknown>) =>
     app.inject({ method: "POST", url, headers, payload });
-  const p = await post("/api/v1/purchases", {
+  const foreign = await app.inject({
+    method: "POST",
+    url: "/api/v1/auth/register",
+    headers: { origin },
+    payload: {
+      email: "foreign@example.org",
+      password: "synthetic second password",
+    },
+  });
+  const otherHeaders = {
+    origin,
+    cookie: String(foreign.headers["set-cookie"]).split(";")[0],
+  };
+  const original = "Receipt for synthetic book order";
+  async function upload(h: typeof headers) {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/artifacts/upload",
+      headers: {
+        ...h,
+        "content-type": "multipart/form-data; boundary=testfile",
+      },
+      payload:
+        '--testfile\r\nContent-Disposition: form-data; name="file"; filename="receipt.txt"\r\nContent-Type: text/plain\r\n\r\n' +
+        original +
+        "\r\n--testfile--\r\n",
+    });
+    assert.equal(res.statusCode, 201);
+    return res.json().data.id;
+  }
+  const attachment = await upload(headers),
+    foreignAttachment = await upload(otherHeaders);
+  const p = await post(`/api/v1/extractions/${attachment}/confirm`, {
     ...purchase,
     date: "2020-01-01",
     items: [{ name: "Book", minor: "100" }],
@@ -341,15 +379,25 @@ test("expired recovery lease resumes and an approved export is single-use", asyn
     (
       await post(`${base}/draft`, {
         ...payload,
-        attachments: ["018fc9d4-f802-7b60-bf64-847170698042"],
+        attachments: [foreignAttachment],
       })
     ).statusCode,
     409,
   );
-  const revised = (await post(`${base}/draft`, payload)).json().data;
+  const revised = (
+    await post(`${base}/draft`, { ...payload, attachments: [attachment] })
+  ).json().data;
   assert.equal((await post(`${base}/export`, old)).statusCode, 409);
   const token = (await post(`${base}/approve`, revised)).json().data;
+  const { writeFileSync } = await import("node:fs");
+  writeFileSync(join(dir, attachment), "Modified contents");
+  assert.equal((await post(`${base}/export`, token)).statusCode, 409);
+  writeFileSync(join(dir, attachment), original);
   const exported = (await post(`${base}/export`, token)).json().data;
+  assert.equal(
+    Buffer.from(exported.attachments[0].base64, "base64").toString(),
+    original,
+  );
   assert.equal(exported.body, "Review [redacted] and [redacted].");
   assert.equal(exported.status, "exported_not_sent");
   assert.equal((await post(`${base}/export`, token)).statusCode, 409);
@@ -358,6 +406,43 @@ test("expired recovery lease resumes and an approved export is single-use", asyn
     1,
   );
   const { notifyDue } = await import("../packages/agent/recovery.ts");
+  const get = (url: string) => app.inject({ url, headers });
+  const inbox = "/api/v1/cases/find?mode=reminders";
+  const notices = (await get(inbox)).json().data;
+  assert.ok(notices.length >= 4);
+  assert.equal(
+    new Set(notices.map((n: { id: string }) => n.id)).size,
+    notices.length,
+  );
+  const mark = { id: notices[0].id, seen: true };
+  assert.equal(
+    (await post("/api/v1/cases/notification-read", mark)).statusCode,
+    204,
+  );
+  assert.equal((await get(inbox)).json().data[0].seen, 1);
+  assert.equal(
+    (
+      await app.inject({
+        method: "POST",
+        url: "/api/v1/cases/notification-read",
+        headers: otherHeaders,
+        payload: mark,
+      })
+    ).statusCode,
+    404,
+  );
+  assert.equal(
+    (await post("/api/v1/cases/notification-read", { ...mark, seen: false }))
+      .statusCode,
+    204,
+  );
+  assert.ok(
+    (await get("/api/v1/cases/find?q=exported"))
+      .json()
+      .data.some((h: { href: string }) =>
+        h.href.startsWith("/activity#event-"),
+      ),
+  );
   const later = now + 8 * 86400000;
   assert.equal(notifyDue(db, later), 1);
   assert.equal(notifyDue(db, later), 0);

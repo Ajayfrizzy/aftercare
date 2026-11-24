@@ -235,7 +235,8 @@ export function CaseWorkspace({
                 <p className="letter">{c.draft.preview}</p>
                 {c.draft.attachments.map((f) => (
                   <p key={f.id}>
-                    Full attachment · {f.mime} · {f.bytes} bytes · {f.sha}
+                    Original receipt, including all personal information ·{" "}
+                    {f.mime} · {f.bytes} bytes · {f.sha}
                   </p>
                 ))}
                 <p>
