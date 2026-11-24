@@ -37,6 +37,17 @@ export default function Vault() {
   const [store, setStore] = useState(""),
     [after, setAfter] = useState(""),
     [view, setView] = useState("cards");
+  const [queue, setQueue] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+  function selectReceipts(files: File[]) {
+    if (!files.length) return;
+    if (edit || uploading || queue.length) {
+      setQueue((current) => [...current, ...files]);
+      return;
+    }
+    setQueue(files.slice(1));
+    void importReceipt(files[0]);
+  }
   const [artifact, setArtifact] = useState("");
   const [user, setUser] = useState(""),
     [ready, setReady] = useState(false),
@@ -106,6 +117,7 @@ export default function Vault() {
   async function importReceipt(file: File) {
     const body = new FormData();
     body.append("file", file);
+    setUploading(true);
     try {
       const response = await fetch("/api/v1/artifacts/upload", {
         method: "POST",
@@ -134,6 +146,8 @@ export default function Vault() {
       );
     } catch (error) {
       setMessage((error as Error).message);
+    } finally {
+      setUploading(false);
     }
   }
   const matches = records.filter(
@@ -183,22 +197,44 @@ export default function Vault() {
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               e.preventDefault();
-              const file = e.dataTransfer.files[0];
-              if (file) void importReceipt(file);
+              selectReceipts(Array.from(e.dataTransfer.files));
             }}
           >
             Import receipt
             <input
               id="receipt-file"
+              multiple
               type="file"
               accept="application/pdf,image/png,image/jpeg,text/plain"
               onChange={(e) => {
-                const file = e.currentTarget.files?.[0];
+                const files = Array.from(e.currentTarget.files ?? []);
                 e.currentTarget.value = "";
-                if (file) void importReceipt(file);
+                selectReceipts(files);
               }}
             />
           </label>
+          {uploading && <output>Uploading receipt…</output>}
+          {queue.length > 0 && (
+            <section aria-label="Receipt queue">
+              <p>
+                {queue.length} waiting for review. Next receipt: {queue[0].name}
+              </p>
+              <button
+                type="button"
+                disabled={uploading || edit}
+                onClick={() => {
+                  const next = queue[0];
+                  setQueue(queue.slice(1));
+                  void importReceipt(next);
+                }}
+              >
+                Review next receipt
+              </button>
+              <button type="button" onClick={() => setQueue([])}>
+                Clear waiting receipts
+              </button>
+            </section>
+          )}
           <div hidden={edit}>
             <Preferences
               initialGuide={register}
@@ -225,9 +261,12 @@ export default function Vault() {
             </button>
             <button
               type="button"
+              disabled={uploading}
               onClick={async () => {
                 try {
                   await request("auth/logout", "POST");
+                  setQueue([]);
+                  setDraft({});
                   setUser("");
                   setRecords([]);
                   setArtifact("");
@@ -303,6 +342,7 @@ export default function Vault() {
                   <label key={key}>
                     {label}
                     <input
+                      aria-describedby={artifact ? "review-" + key : undefined}
                       name={key}
                       type={key === "date" ? "date" : "text"}
                       required={key !== "notes" && key !== "orderNumber"}
@@ -310,6 +350,19 @@ export default function Vault() {
                         (artifact && key ? draft[key] : undefined) ?? value
                       }
                     />
+                    {artifact && (
+                      <small id={"review-" + key}>
+                        {key === "date"
+                          ? "Use the purchase date printed on the receipt."
+                          : key === "merchant"
+                            ? "Check the seller name against the original receipt."
+                            : key === "currency"
+                              ? "Verify the currency code. A dollar sign alone can be ambiguous."
+                              : key === "orderNumber"
+                                ? "Leave blank if the source gives no order number."
+                                : "Record anything unclear in the source here."}
+                      </small>
+                    )}
                   </label>
                 ))}
                 <Items
