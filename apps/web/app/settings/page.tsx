@@ -15,6 +15,15 @@ export default function Page() {
         <Link href="/vault">Open account</Link>
       </section>
       <section>
+        <h2>Download journal records</h2>
+        <p>
+          Save your profile, purchases, receipt references, reviewed fields,
+          protection evidence, drafts and activity as JSON. Original receipt
+          files are available from their purchases.
+        </p>
+        <a href="/api/v1/exports/my-data">Download records</a>
+      </section>
+      <section>
         <h2>Connected services</h2>
         <dl>
           <dt>Receipt inference and Tavily research</dt>

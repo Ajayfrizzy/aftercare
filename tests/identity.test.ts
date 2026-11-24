@@ -100,3 +100,28 @@ test("manual purchase, duplicate rejection, owner corrections, archive and delet
   );
   assert.equal((await app.inject({ url, headers })).statusCode, 404);
 });
+
+test("records export requires an owner and omits other accounts and credentials", async (t) => {
+  const app = createApp(":memory:", "x".repeat(32));
+  t.after(() => app.close());
+  const url = "/api/v1/exports/my-data";
+  assert.equal((await app.inject({ url })).statusCode, 401);
+  async function register(email: string) {
+    return app.inject({
+      method: "POST",
+      url: "/api/v1/auth/register",
+      headers: { origin: "http://localhost:3000" },
+      payload: { email, password: "synthetic export password" },
+    });
+  }
+  const owner = await register("first@example.org");
+  await register("second@example.org");
+  const result = await app.inject({
+    url,
+    headers: { cookie: String(owner.headers["set-cookie"]).split(";")[0] },
+  });
+  assert.equal(result.statusCode, 200);
+  assert.equal(result.json().data.profile.email, "first@example.org");
+  assert.doesNotMatch(result.body, /second@example|password_hash|token_hash/);
+  assert.match(String(result.headers["content-disposition"]), /attachment/);
+});

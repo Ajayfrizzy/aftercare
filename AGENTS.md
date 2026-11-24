@@ -46,3 +46,6 @@ You are building **Aftercare**, a serious, user-controlled **personal** post-pur
 
 ## Owner workflow update
 All milestone work uses branches in ~/Desktop/aftercare. Commit or preserve unfinished work before switching branches. Creating another project folder or worktree requires explicit owner approval. Run automated checks throughout development. Defer owner-operated browser, VoiceOver and milestone acceptance sessions until comprehensive final testing. Continue local implementation in milestone order. Push, staging/main merge, paid resources and deployment require separate approval.
+
+## Development verification
+GitHub Actions free minutes are exhausted. Use local formatting, lint, typecheck, build, application/API/database tests and necessary browser checks. Opening a staging PR currently triggers hosted Actions. Keep integration pending while that trigger applies. Preserve ordinary PR protections and feature → staging → main ancestry. Owner walkthroughs resume at final comprehensive testing.

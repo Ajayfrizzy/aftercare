@@ -96,6 +96,51 @@ export function identityRoutes(app: FastifyInstance, db: DatabaseSync) {
         .send({ data: { id, email } });
     });
   }
+  app.get("/api/v1/exports/my-data", async (req, reply) => {
+    reply.header("cache-control", "private, no-store");
+    const owner = sessionOwner(db, req);
+    if (!owner)
+      return reply.code(401).send({ error: { code: "UNAUTHORIZED" } });
+    db.exec("BEGIN");
+    try {
+      const profile = db
+        .prepare("SELECT email,preferences,created_at FROM users WHERE id=?")
+        .get(owner);
+      const owned = (sql: string) => db.prepare(sql).all(owner);
+      const data = {
+        profile,
+        purchases: owned("SELECT * FROM purchases WHERE user_id=?"),
+        receipts: owned("SELECT * FROM artifacts WHERE user_id=?"),
+        confirmations: owned("SELECT * FROM receipt_evidence WHERE user_id=?"),
+        revisions: owned("SELECT * FROM review_fields WHERE owner=?"),
+        protection: owned(
+          "SELECT * FROM protection_observations WHERE user_id=?",
+        ),
+        cases: owned(
+          "SELECT c.* FROM recovery_cases c JOIN protection_observations o ON o.id=c.observation_id WHERE o.user_id=?",
+        ),
+        drafts: owned(
+          "SELECT d.* FROM recovery_drafts d JOIN protection_observations o ON o.id=d.case_id WHERE o.user_id=?",
+        ),
+        activity: owned(
+          "SELECT * FROM audit_events WHERE user_id=? ORDER BY sequence",
+        ),
+        monitoring: owned(
+          "SELECT paused,reminders FROM monitoring_preferences WHERE user_id=?",
+        ),
+      };
+      db.exec("COMMIT");
+      return reply
+        .header(
+          "content-disposition",
+          'attachment; filename="aftercare-records.json"',
+        )
+        .send({ formatVersion: 1, exportedAt: new Date().toISOString(), data });
+    } catch (error) {
+      db.exec("ROLLBACK");
+      throw error;
+    }
+  });
   app.get("/api/v1/me/audit", async (req, reply) => {
     reply.header("cache-control", "no-store");
     const owner = sessionOwner(db, req);
