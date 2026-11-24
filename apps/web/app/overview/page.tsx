@@ -4,21 +4,33 @@ import Link from "next/link";
 type Attention = {
   id: string;
   purchaseId: string;
+  potentialRefund?: { currency: string; minor: string } | null;
   merchant: string;
   state: string;
   reason: string;
   nextCheckAt: string | null;
 };
-type Summary = { items: number; cases: number; records: Attention[] };
+type Summary = {
+  events: { action: string; created_at: string }[];
+  lastChecked: string | null;
+  paused: boolean;
+  items: number;
+  cases: number;
+  records: Attention[];
+};
 export default function Overview() {
   const [summary, setSummary] = useState<Summary>(),
     [status, setStatus] = useState("Loading your journal…");
   const load = useCallback(async () => {
     try {
       const responses = await Promise.all(
-        ["purchases", "cases", "protection"].map((path) =>
-          fetch(`/api/v1/${path}`, { cache: "no-store" }),
-        ),
+        [
+          "purchases",
+          "cases",
+          "protection",
+          "cases/activity",
+          "cases/monitoring",
+        ].map((path) => fetch(`/api/v1/${path}`, { cache: "no-store" })),
       );
       if (responses.some((r) => r.status === 401)) {
         setSummary(undefined);
@@ -26,8 +38,18 @@ export default function Overview() {
         return;
       }
       if (responses.some((r) => !r.ok)) throw Error();
-      const [p, c, e] = await Promise.all(responses.map((r) => r.json()));
+      const [p, c, e, activity, monitor] = await Promise.all(
+        responses.map((r) => r.json()),
+      );
       setSummary({
+        events: activity.data.events.slice(0, 3),
+        lastChecked:
+          activity.data.jobs
+            .map((j: { completed_at: string | null }) => j.completed_at)
+            .filter(Boolean)
+            .sort()
+            .at(-1) ?? null,
+        paused: monitor.data.paused,
         items: p.data.length,
         cases: c.data.length,
         records: e.data,
@@ -67,6 +89,37 @@ export default function Overview() {
               Need attention
             </Link>
           </div>
+          <section>
+            <h2>Refund commitments</h2>
+            {summary.records.some((e) => e.potentialRefund) ? (
+              summary.records
+                .filter((e) => e.potentialRefund)
+                .map((e) => (
+                  <p key={e.id}>
+                    {e.merchant} · {e.potentialRefund?.minor} minor units (
+                    {e.potentialRefund?.currency}) · receipt unconfirmed
+                  </p>
+                ))
+            ) : (
+              <p>No outstanding amounts recorded.</p>
+            )}
+          </section>
+          <section>
+            <h2>Latest activity</h2>
+            <p>
+              {summary.paused
+                ? "Monitoring paused."
+                : "Checks run while Aftercare is awake."}{" "}
+              {summary.lastChecked
+                ? `Last completed check: ${new Date(summary.lastChecked).toLocaleString()}`
+                : "No completed check recorded."}
+            </p>
+            {summary.events.map((e) => (
+              <p key={e.created_at + e.action}>
+                {e.action.replaceAll("_", " ")} · {e.created_at} UTC
+              </p>
+            ))}
+          </section>
           <section>
             <h2>Needs attention</h2>
             {summary.records

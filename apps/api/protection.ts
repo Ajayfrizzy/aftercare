@@ -93,6 +93,10 @@ export async function protectionRoutes(
           merchant: purchase.merchant,
           kind: evidence.kind,
           source: evidence.source,
+          potentialRefund:
+            evidence.kind === "refund" && !evidence.received
+              ? { currency: evidence.currency, minor: evidence.amountMinor }
+              : null,
           region: evidence.region,
           observedAt: evidence.observedAt,
           ...evaluate(evidence, purchase, now),

@@ -16,6 +16,7 @@ type Entry = {
   nextCheckAt: string | null;
 };
 export default function ProtectionCenter() {
+  const [kind, setKind] = useState("");
   const [entries, setEntries] = useState<Entry[]>([]),
     [status, setStatus] = useState("Loading protection checks…");
   const load = useCallback(async () => {
@@ -48,6 +49,29 @@ export default function ProtectionCenter() {
       <Link href="/vault">Purchase vault</Link>
       <h1>Protection center</h1>
       <output>{status}</output>
+      {entries.length > 0 && (
+        <label>
+          View protection type
+          <select value={kind} onChange={(e) => setKind(e.target.value)}>
+            <option value="">All checks</option>
+            {Object.entries({
+              return: "Returns",
+              warranty: "Warranties",
+              price: "Price opportunities",
+              recall: "Recall notices",
+              delivery: "Deliveries",
+              refund: "Refunds",
+            }).map(([k, v]) => (
+              <option key={k} value={k}>
+                {v}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {kind && !entries.some((e) => e.kind === kind) && (
+        <p>No records for this protection type.</p>
+      )}
       {status.startsWith("Sign in") && (
         <Link href="/vault">Sign in or create an account</Link>
       )}
@@ -63,11 +87,13 @@ export default function ProtectionCenter() {
         closed: "Closed",
       }).map(
         ([state, label]) =>
-          entries.some((e) => e.state === state) && (
+          entries.some(
+            (e) => e.state === state && (!kind || e.kind === kind),
+          ) && (
             <section key={state}>
               <h2>{label}</h2>
               {entries
-                .filter((e) => e.state === state)
+                .filter((e) => e.state === state && (!kind || e.kind === kind))
                 .map((e) => (
                   <article key={e.id}>
                     <h3>
