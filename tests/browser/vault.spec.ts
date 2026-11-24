@@ -376,3 +376,52 @@ test("receipt queue preserves confirmations through failures, duplicates and can
   );
   expect(purchases).toHaveLength(2);
 });
+
+test("journal search and notifications open the owned purchase and retain read state", async ({
+  page,
+}) => {
+  await page.goto("/vault");
+  await page.evaluate(async () => {
+    async function post(path: string, payload: unknown) {
+      const response = await fetch("/api/v1/" + path, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) throw Error(path);
+    }
+    await post("auth/register", {
+      email: "journal-find@example.org",
+      password: "synthetic journal password",
+    });
+    await post("purchases", {
+      merchant: "Copper Pencil",
+      currency: "USD",
+      date: "2026-11-23",
+      items: [{ name: "Notebook", minor: "750" }],
+    });
+  });
+  await page.reload();
+  const open = () =>
+    page.getByText("Search and notifications", { exact: true }).click();
+  await open();
+  const field = page.getByLabel("Search your journal");
+  await field.fill("nonexistent title");
+  await field.press("Enter");
+  await expect(page.getByText("No matching records.")).toBeVisible();
+  await field.fill("Notebook");
+  await field.press("Enter");
+  await page.getByRole("link", { name: "Purchase · Copper Pencil" }).click();
+  await expect(page).toHaveURL(/#purchase-/);
+  await page.reload();
+  await open();
+  const view = page.getByRole("button", { name: "View notifications" });
+  await view.click();
+  await page.getByRole("button", { name: "Mark as read", exact: true }).click();
+  await expect(page.getByText("Read", { exact: true })).toBeVisible();
+  await page.reload();
+  await open();
+  await view.click();
+  await page.getByRole("button", { name: "Mark as unread" }).click();
+  await expect(page.getByText("Unread", { exact: true })).toBeVisible();
+});
