@@ -3,7 +3,12 @@ import Controls from "./controls";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 type Activity = {
-  events: { action: string; subject: string; created_at: string }[];
+  events: {
+    sequence: number;
+    action: string;
+    subject: string;
+    created_at: string;
+  }[];
   jobs: {
     id: string;
     source: string;
@@ -91,7 +96,7 @@ export default function ActivityPage() {
             <h2>Recovery history</h2>
             {!data.events.length && <p>No recovery actions recorded.</p>}
             {data.events.map((e, index) => (
-              <p key={JSON.stringify([e, index])}>
+              <p id={"event-" + e.sequence} key={JSON.stringify([e, index])}>
                 {e.action.replace("recovery_", "").replaceAll("_", " ")} ·{" "}
                 {e.created_at} UTC
               </p>

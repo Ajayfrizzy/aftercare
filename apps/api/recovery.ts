@@ -93,8 +93,9 @@ export async function recoveryRoutes(
       const rows = db
         .prepare(`SELECT 'Purchase · '||json_extract(record,'$.merchant') AS label,'/vault#purchase-'||id AS href FROM purchases WHERE user_id=? AND instr(lower(record),lower(?))>0
     UNION ALL SELECT 'Protection · '||json_extract(record,'$.kind')||' · '||json_extract(record,'$.merchant'),'/protection#observation-'||id FROM protection_observations WHERE user_id=? AND instr(lower(record),lower(?))>0
-    UNION ALL SELECT 'Case · '||c.reason,'/cases#case-'||c.observation_id FROM recovery_cases c JOIN protection_observations o ON o.id=c.observation_id WHERE o.user_id=? AND instr(lower(o.record||c.reason),lower(?))>0 LIMIT 100`)
-        .all(owner, query, owner, query, owner, query);
+    UNION ALL SELECT 'Case · '||c.reason,'/cases#case-'||c.observation_id FROM recovery_cases c JOIN protection_observations o ON o.id=c.observation_id WHERE o.user_id=? AND instr(lower(o.record||c.reason),lower(?))>0
+    UNION ALL SELECT 'Agent activity · '||replace(action,'_',' ')||' · '||created_at,'/activity#event-'||sequence FROM audit_events WHERE user_id=? AND action LIKE 'recovery_%' AND instr(lower(replace(action,'_',' ')||' '||subject||' '||created_at),lower(?))>0 ORDER BY label LIMIT 100`)
+        .all(owner, query, owner, query, owner, query, owner, query);
       return { data: rows };
     },
   );
@@ -102,7 +103,7 @@ export async function recoveryRoutes(
     const owner = sessionOwner(db, req);
     const events = db
       .prepare(
-        "SELECT action,subject,created_at FROM audit_events WHERE user_id=? AND action LIKE 'recovery_%' ORDER BY sequence DESC LIMIT 100",
+        "SELECT sequence,action,subject,created_at FROM audit_events WHERE user_id=? AND action LIKE 'recovery_%' ORDER BY sequence DESC LIMIT 100",
       )
       .all(owner);
     const jobs = db

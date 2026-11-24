@@ -1,12 +1,14 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 type Hit = { label: string; href: string };
 export default function Find() {
   const [query, setQuery] = useState(""),
     [hits, setHits] = useState<Hit[]>([]),
     [status, setStatus] = useState("");
+  const generation = useRef(0);
   async function run(reminders: boolean) {
+    const request = ++generation.current;
     setHits([]);
     setStatus("Loading…");
     try {
@@ -25,16 +27,17 @@ export default function Find() {
             : "Search unavailable.",
         );
       const { data } = await r.json();
+      if (request !== generation.current) return;
       setHits(data);
       setStatus(
         data.length
-          ? ""
+          ? data.length + (reminders ? " reminders." : " matching records.")
           : reminders
             ? "No due follow-up reminders."
             : "No matching records.",
       );
     } catch (e) {
-      setStatus((e as Error).message);
+      if (request === generation.current) setStatus((e as Error).message);
     }
   }
   return (
