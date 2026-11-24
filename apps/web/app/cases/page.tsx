@@ -13,7 +13,7 @@ type Case = {
     body: string;
     recipient: string;
   } | null;
-  exports: { follow_up_at: string }[];
+  exports: { follow_up_at: string; notified_at: string | null }[];
 };
 export default function Cases() {
   const [cases, setCases] = useState<Case[]>([]),
@@ -67,6 +67,7 @@ export default function Cases() {
   return (
     <div className="vault">
       <Link href="/vault">Purchase vault</Link>
+      <Link href="/activity">Agent activity</Link>
       <h1>Recovery cases</h1>
       <output>{message}</output>
       {!cases.length && !message && <p>No issues currently require a claim.</p>}
@@ -148,7 +149,10 @@ export default function Cases() {
           )}
           {c.exports.map((x) => (
             <p key={x.follow_up_at}>
-              Exported · Follow up {new Date(x.follow_up_at).toLocaleString()}
+              {x.notified_at
+                ? "Follow-up due. Review the merchant response."
+                : "Exported · Follow up " +
+                  new Date(x.follow_up_at).toLocaleString()}
             </p>
           ))}
         </section>

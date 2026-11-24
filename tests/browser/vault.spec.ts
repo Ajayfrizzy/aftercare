@@ -209,3 +209,61 @@ test("protection form records and reads a delivery commitment", async ({
     });
   }
 });
+
+test("review, approve and download an evidence-linked recovery draft", async ({
+  page,
+}) => {
+  await page.goto("/vault");
+  const status = await page.evaluate(async () => {
+    const post = (path: string, payload: unknown) =>
+      fetch(`/api/v1/${path}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    await post("auth/register", {
+      email: "recover@example.org",
+      password: "synthetic recovery password",
+    });
+    const p = await post("purchases", {
+      merchant: "Recovery shop",
+      currency: "USD",
+      date: "2020-01-01",
+      items: [{ name: "Pen", minor: "200" }],
+    });
+    return (
+      await post(`purchases/${(await p.json()).data.id}/protection`, {
+        kind: "delivery",
+        merchant: "Recovery shop",
+        region: "US",
+        source: "https://example.org/order",
+        observedAt: "2020-01-01T00:00:00Z",
+        excerpt: "Synthetic delivery commitment",
+        dueAt: "2020-01-02T00:00:00Z",
+        received: false,
+      })
+    ).status;
+  });
+  expect(status).toBe(201);
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          async () => (await (await fetch("/api/v1/cases")).json()).data.length,
+        ),
+      { timeout: 12000 },
+    )
+    .toBe(1);
+  await page.goto("/cases");
+  await page.getByLabel("Intended recipient").fill("Shop support");
+  await page.getByRole("button", { name: "Save draft" }).click();
+  await page.getByText("Review saved version 1").press("Enter");
+  await page
+    .getByRole("button", { name: "Approve this version for download" })
+    .click();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download approved claim" }).click();
+  expect((await download).suggestedFilename()).toBe("aftercare-claim.txt");
+  await page.getByRole("link", { name: "Agent activity" }).click();
+  await expect(page.getByText(/exported not sent/)).toBeVisible();
+});

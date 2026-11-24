@@ -24,6 +24,20 @@ export async function recoveryRoutes(
     )
       return reply.code(403).send({ error: { code: "CSRF" } });
   });
+  app.get("/activity", async (req) => {
+    const owner = sessionOwner(db, req);
+    const events = db
+      .prepare(
+        "SELECT action,subject,created_at FROM audit_events WHERE user_id=? AND action LIKE 'recovery_%' ORDER BY sequence DESC LIMIT 100",
+      )
+      .all(owner);
+    const jobs = db
+      .prepare(
+        "SELECT j.attempts,j.failures,j.failed_at,j.completed_at,j.due_at,j.lease_until,o.id FROM recovery_jobs j JOIN protection_observations o ON o.id=j.observation_id WHERE o.user_id=? ORDER BY j.id DESC LIMIT 100",
+      )
+      .all(owner);
+    return { data: { events, jobs } };
+  });
   app.get("/", async (req) => ({
     data: db
       .prepare(`${cases} ORDER BY opened_at DESC`)

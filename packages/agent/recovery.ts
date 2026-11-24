@@ -8,7 +8,7 @@ export function claimDue(db: DatabaseSync, now: number) {
     stamp = new Date(now).toISOString();
   return db
     .prepare(
-      "UPDATE recovery_jobs SET lease_token=?, lease_until=?,attempts=attempts+1 WHERE id=(SELECT id FROM recovery_jobs WHERE completed_at IS NULL AND due_at<=? AND (lease_until IS NULL OR lease_until<=?) ORDER BY due_at,id LIMIT 1) RETURNING id,observation_id,lease_token",
+      "UPDATE recovery_jobs SET lease_token=?, lease_until=?,attempts=attempts+1 WHERE id=(SELECT id FROM recovery_jobs WHERE completed_at IS NULL AND failed_at IS NULL AND due_at<=? AND (lease_until IS NULL OR lease_until<=?) ORDER BY due_at,id LIMIT 1) RETURNING id,observation_id,lease_token,failures",
     )
     .get(token, new Date(now + 30000).toISOString(), stamp, stamp);
 }
@@ -38,13 +38,33 @@ export function checkDue(db: DatabaseSync, now = Date.now()) {
           ? new Date(insight.nextCheckAt).toISOString()
           : null;
       db.prepare(
-        "UPDATE recovery_jobs SET completed_at=?,due_at=COALESCE(?,due_at),lease_token=NULL,lease_until=NULL WHERE id=? AND lease_token=?",
+        "UPDATE recovery_jobs SET failures=0,completed_at=?,due_at=COALESCE(?,due_at),lease_token=NULL,lease_until=NULL WHERE id=? AND lease_token=?",
       ).run(next ? null : stamp, next, job.id, job.lease_token);
     }
     db.exec("COMMIT");
   } catch (error) {
     db.exec("ROLLBACK");
+    const failures = Number(job.failures) + 1;
+    const delay = 5000 * 2 ** Math.min(failures - 1, 4);
+    db.prepare(
+      "UPDATE recovery_jobs SET failures=?, failed_at=?, due_at=?, lease_token=NULL, lease_until=NULL WHERE id=? AND lease_token=?",
+    ).run(
+      failures,
+      failures >= 5 ? new Date(now).toISOString() : null,
+      new Date(now + delay).toISOString(),
+      job.id,
+      job.lease_token,
+    );
     throw error;
   }
   return true;
+}
+
+export function notifyDue(db: DatabaseSync, now = Date.now()) {
+  const stamp = new Date(now).toISOString();
+  return db
+    .prepare(
+      "UPDATE recovery_exports SET notified_at=? WHERE approval_id IN (SELECT approval_id FROM recovery_exports WHERE notified_at IS NULL AND follow_up_at<=? ORDER BY follow_up_at LIMIT 50)",
+    )
+    .run(stamp, stamp).changes;
 }

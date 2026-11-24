@@ -341,4 +341,21 @@ test("expired recovery lease resumes and an approved export is single-use", asyn
     db.prepare("SELECT count(*) AS n FROM recovery_exports").get()?.n,
     1,
   );
+  const { notifyDue } = await import("../packages/agent/recovery.ts");
+  const later = now + 8 * 86400000;
+  assert.equal(notifyDue(db, later), 1);
+  assert.equal(notifyDue(db, later), 0);
+  db.prepare("UPDATE protection_observations SET record='{}' WHERE id=?").run(
+    obs.json().data.id,
+  );
+  db.prepare("UPDATE recovery_jobs SET due_at=?,completed_at=NULL").run(
+    new Date(now).toISOString(),
+  );
+  for (let i = 0; i < 5; i++)
+    assert.throws(() => checkDue(db, later + i * 90000));
+  assert.equal(checkDue(db, later + 999999), false);
+  assert.equal(
+    db.prepare("SELECT failures FROM recovery_jobs").get()?.failures,
+    5,
+  );
 });
