@@ -95,7 +95,7 @@ export async function recoveryRoutes(
       .all(owner);
     const jobs = db
       .prepare(
-        "SELECT j.attempts,j.failures,j.failed_at,j.completed_at,j.due_at,j.lease_until,o.id FROM recovery_jobs j JOIN protection_observations o ON o.id=j.observation_id WHERE o.user_id=? ORDER BY j.id DESC LIMIT 100",
+        "SELECT j.attempts,j.failures,j.failed_at,j.completed_at,j.due_at,j.lease_until,o.id,json_extract(o.record,'$.source') AS source,json_extract(o.record,'$.observedAt') AS observedAt,json_extract(o.record,'$.kind') AS kind,c.reason FROM recovery_jobs j JOIN protection_observations o ON o.id=j.observation_id LEFT JOIN recovery_cases c ON c.observation_id=o.id WHERE o.user_id=? ORDER BY j.id DESC LIMIT 100",
       )
       .all(owner);
     return { data: { events, jobs } };

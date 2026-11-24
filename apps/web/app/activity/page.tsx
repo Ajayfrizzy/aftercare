@@ -6,6 +6,10 @@ type Activity = {
   events: { action: string; subject: string; created_at: string }[];
   jobs: {
     id: string;
+    source: string;
+    kind: string;
+    observedAt: string;
+    reason: string | null;
     attempts: number;
     failures: number;
     failed_at: string | null;
@@ -59,6 +63,27 @@ export default function ActivityPage() {
                   {j.attempts} attempts · Due{" "}
                   {new Date(j.due_at).toLocaleString()}
                 </p>
+                <details>
+                  <summary>Why this {j.kind} check runs</summary>
+                  <p>
+                    Aftercare evaluates the recorded {j.kind} evidence against
+                    the purchase when this job is due.
+                  </p>
+                  {j.reason && (
+                    <p>Reason recorded when the case opened: {j.reason}</p>
+                  )}
+                  <p>
+                    Owner-reported source observed{" "}
+                    {new Date(j.observedAt).toLocaleString()}.
+                  </p>
+                  <a href={j.source} rel="noreferrer" target="_blank">
+                    Read source
+                  </a>
+                  {" · "}
+                  <Link href={"/protection#observation-" + j.id}>
+                    View current assessment
+                  </Link>
+                </details>
               </article>
             ))}
           </section>
