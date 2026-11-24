@@ -1,4 +1,5 @@
 "use client";
+import Controls from "./controls";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 type Activity = {
@@ -34,6 +35,7 @@ export default function ActivityPage() {
     <div className="vault">
       <Link href="/cases">Recovery cases</Link>
       <h1>Agent activity</h1>
+      <Controls />
       <output>{status}</output>
       {data && (
         <>

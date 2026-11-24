@@ -8,7 +8,7 @@ export function claimDue(db: DatabaseSync, now: number) {
     stamp = new Date(now).toISOString();
   return db
     .prepare(
-      "UPDATE recovery_jobs SET lease_token=?, lease_until=?,attempts=attempts+1 WHERE id=(SELECT id FROM recovery_jobs WHERE completed_at IS NULL AND failed_at IS NULL AND due_at<=? AND (lease_until IS NULL OR lease_until<=?) ORDER BY due_at,id LIMIT 1) RETURNING id,observation_id,lease_token,failures",
+      "UPDATE recovery_jobs SET lease_token=?, lease_until=?,attempts=attempts+1 WHERE id=(SELECT id FROM recovery_jobs WHERE NOT EXISTS (SELECT 1 FROM monitoring_preferences m JOIN protection_observations o ON o.user_id=m.user_id WHERE o.id=recovery_jobs.observation_id AND m.paused=1) AND completed_at IS NULL AND failed_at IS NULL AND due_at<=? AND (lease_until IS NULL OR lease_until<=?) ORDER BY due_at,id LIMIT 1) RETURNING id,observation_id,lease_token,failures",
     )
     .get(token, new Date(now + 30000).toISOString(), stamp, stamp);
 }
@@ -64,7 +64,7 @@ export function notifyDue(db: DatabaseSync, now = Date.now()) {
   const stamp = new Date(now).toISOString();
   return db
     .prepare(
-      "UPDATE recovery_exports SET notified_at=? WHERE approval_id IN (SELECT approval_id FROM recovery_exports WHERE notified_at IS NULL AND follow_up_at<=? ORDER BY follow_up_at LIMIT 50)",
+      "UPDATE recovery_exports SET notified_at=? WHERE approval_id IN (SELECT approval_id FROM recovery_exports WHERE NOT EXISTS (SELECT 1 FROM monitoring_preferences m JOIN protection_observations o ON o.user_id=m.user_id JOIN recovery_approvals a ON a.case_id=o.id WHERE a.id=recovery_exports.approval_id AND (m.paused=1 OR m.reminders=0)) AND notified_at IS NULL AND follow_up_at<=? ORDER BY follow_up_at LIMIT 50)",
     )
     .run(stamp, stamp).changes;
 }

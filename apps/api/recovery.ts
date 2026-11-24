@@ -4,6 +4,7 @@ import type { FastifyInstance } from "fastify";
 import {
   observation,
   approvalRequest,
+  monitoringPreferences,
   recoveryDraft,
 } from "@aftercare/contracts";
 import { sessionOwner } from "./identity.ts";
@@ -23,6 +24,34 @@ export async function recoveryRoutes(
         (process.env.APP_BASE_URL ?? "http://localhost:3000")
     )
       return reply.code(403).send({ error: { code: "CSRF" } });
+  });
+  app.route({
+    method: ["GET", "POST"],
+    url: "/monitoring",
+    handler: async (req, reply) => {
+      const owner = sessionOwner(db, req);
+      if (req.method === "POST") {
+        const parsed = monitoringPreferences.safeParse(req.body);
+        if (!parsed.success)
+          return reply
+            .code(422)
+            .send({ error: { code: "INVALID_PREFERENCES" } });
+        db.prepare(
+          "INSERT INTO monitoring_preferences VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET paused=excluded.paused,reminders=excluded.reminders",
+        ).run(owner, Number(parsed.data.paused), Number(parsed.data.reminders));
+      }
+      const row = db
+        .prepare(
+          "SELECT paused,reminders FROM monitoring_preferences WHERE user_id=?",
+        )
+        .get(owner);
+      return {
+        data: {
+          paused: Boolean(row?.paused),
+          reminders: Boolean(row?.reminders ?? 1),
+        },
+      };
+    },
   });
   app.get("/activity", async (req) => {
     const owner = sessionOwner(db, req);

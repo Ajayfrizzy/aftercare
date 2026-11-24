@@ -92,6 +92,6 @@ test("fresh migrations reproduce schema, version and initial owner", () => {
     }
   }
   const first = snapshot();
-  assert.deepEqual(Object.values(first[1] ?? {})[0], 9);
+  assert.deepEqual(Object.values(first[1] ?? {})[0], 10);
   assert.deepEqual(first, snapshot());
 });

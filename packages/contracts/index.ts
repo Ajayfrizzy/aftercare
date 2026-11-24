@@ -171,3 +171,7 @@ export const approvalRequest = z.strictObject({
   version: z.number().int().positive(),
   contentHash: z.string().regex(/^[0-9a-f]{64}$/),
 });
+export const monitoringPreferences = z.strictObject({
+  paused: z.boolean(),
+  reminders: z.boolean(),
+});
