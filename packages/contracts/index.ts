@@ -163,3 +163,11 @@ export const researchRequest = z.discriminatedUnion("kind", [
     model: z.string().trim().min(1).max(200),
   }),
 ]);
+export const recoveryDraft = z.strictObject({
+  recipient: z.string().trim().min(1).max(200),
+  body: z.string().trim().min(1).max(8000),
+});
+export const approvalRequest = z.strictObject({
+  version: z.number().int().positive(),
+  contentHash: z.string().regex(/^[0-9a-f]{64}$/),
+});

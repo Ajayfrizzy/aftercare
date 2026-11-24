@@ -1,0 +1,50 @@
+import { randomUUID } from "node:crypto";
+import type { DatabaseSync } from "node:sqlite";
+import { observation } from "../contracts/index.ts";
+import { evaluate } from "../domain/protection.ts";
+
+export function claimDue(db: DatabaseSync, now: number) {
+  const token = randomUUID(),
+    stamp = new Date(now).toISOString();
+  return db
+    .prepare(
+      "UPDATE recovery_jobs SET lease_token=?, lease_until=?,attempts=attempts+1 WHERE id=(SELECT id FROM recovery_jobs WHERE completed_at IS NULL AND due_at<=? AND (lease_until IS NULL OR lease_until<=?) ORDER BY due_at,id LIMIT 1) RETURNING id,observation_id,lease_token",
+    )
+    .get(token, new Date(now + 30000).toISOString(), stamp, stamp);
+}
+export function checkDue(db: DatabaseSync, now = Date.now()) {
+  const job = claimDue(db, now);
+  if (!job) return false;
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const row = db
+      .prepare(
+        "SELECT o.record AS evidence,p.record AS purchase FROM recovery_jobs j JOIN protection_observations o ON o.id=j.observation_id JOIN purchases p ON p.id=o.purchase_id AND p.user_id=o.user_id WHERE j.id=? AND j.lease_token=?",
+      )
+      .get(job.id, job.lease_token);
+    if (row) {
+      const insight = evaluate(
+        observation.parse(JSON.parse(String(row.evidence))),
+        JSON.parse(String(row.purchase)),
+        now,
+      );
+      const stamp = new Date(now).toISOString();
+      if (insight.state === "attention")
+        db.prepare(
+          "INSERT OR IGNORE INTO recovery_cases(observation_id,opened_at,reason) VALUES(?,?,?)",
+        ).run(job.observation_id, stamp, insight.reason);
+      const next =
+        insight.nextCheckAt && Date.parse(insight.nextCheckAt) > now
+          ? new Date(insight.nextCheckAt).toISOString()
+          : null;
+      db.prepare(
+        "UPDATE recovery_jobs SET completed_at=?,due_at=COALESCE(?,due_at),lease_token=NULL,lease_until=NULL WHERE id=? AND lease_token=?",
+      ).run(next ? null : stamp, next, job.id, job.lease_token);
+    }
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+  return true;
+}

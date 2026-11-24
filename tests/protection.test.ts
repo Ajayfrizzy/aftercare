@@ -279,3 +279,66 @@ test("research gate and durable read-triggered check survive retries and reopen"
     reopened.close();
   }
 });
+
+test("expired recovery lease resumes and an approved export is single-use", async (t) => {
+  const { mkdtempSync, rmSync } = await import("node:fs"),
+    { join } = await import("node:path"),
+    { tmpdir } = await import("node:os");
+  const { openDatabase } = await import("../packages/db/index.ts"),
+    { claimDue, checkDue } = await import("../packages/agent/recovery.ts");
+  const dir = mkdtempSync(join(tmpdir(), "aftercare-recovery-"));
+  t.after(() => rmSync(dir, { recursive: true }));
+  const path = join(dir, "db");
+  const app = createApp(path, "x".repeat(32));
+  t.after(() => app.close());
+  const origin = "http://localhost:3000";
+  const user = await app.inject({
+    method: "POST",
+    url: "/api/v1/auth/register",
+    headers: { origin },
+    payload: { email: "case@example.org", password: "synthetic case password" },
+  });
+  const headers = {
+    origin,
+    cookie: String(user.headers["set-cookie"]).split(";")[0],
+  };
+  const post = (url: string, payload: Record<string, unknown>) =>
+    app.inject({ method: "POST", url, headers, payload });
+  const p = await post("/api/v1/purchases", {
+    ...purchase,
+    date: "2020-01-01",
+    items: [{ name: "Book", minor: "100" }],
+  });
+  const obs = await post(`/api/v1/purchases/${p.json().data.id}/protection`, {
+    ...basic,
+    observedAt: "2020-01-01T00:00:00Z",
+    kind: "delivery",
+    dueAt: "2020-01-02T00:00:00Z",
+    received: false,
+  });
+  const now = Date.now() + 100;
+  const first = openDatabase(path);
+  assert.ok(claimDue(first, now));
+  first.close();
+  const db = openDatabase(path);
+  t.after(() => db.close());
+  assert.equal(checkDue(db, now + 1), false);
+  assert.equal(checkDue(db, now + 31000), true);
+  const base = `/api/v1/cases/${obs.json().data.id}`;
+  const draft = (
+    await post(`${base}/draft`, {
+      recipient: "Shop",
+      body: "Please review this delivery.",
+    })
+  ).json().data;
+  const token = (await post(`${base}/approve`, draft)).json().data;
+  assert.equal(
+    (await post(`${base}/export`, token)).json().data.status,
+    "exported_not_sent",
+  );
+  assert.equal((await post(`${base}/export`, token)).statusCode, 409);
+  assert.equal(
+    db.prepare("SELECT count(*) AS n FROM recovery_exports").get()?.n,
+    1,
+  );
+});

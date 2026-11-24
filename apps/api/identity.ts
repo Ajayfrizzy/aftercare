@@ -23,7 +23,7 @@ function tokenOf(req: FastifyRequest) {
   const value = req.headers.cookie
     ?.split(";")
     .map((part) => part.trim())
-    .find((part) => part.startsWith(sessionCookie + "="))
+    .find((part) => part.startsWith(`${sessionCookie}=`))
     ?.slice(sessionCookie.length + 1);
   return value && /^[a-f0-9]{64}$/.test(value) ? value : "";
 }

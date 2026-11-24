@@ -200,6 +200,7 @@ export default function Vault() {
             />
           </div>
           <nav aria-label="Purchase vault actions">
+            <a href="/cases">Recovery cases</a>
             <a href="/protection">Protection center</a>
             <button
               type="button"

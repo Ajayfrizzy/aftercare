@@ -1,3 +1,5 @@
+import { recoveryRoutes } from "./recovery.ts";
+import { checkDue } from "../../packages/agent/recovery.ts";
 import { protectionRoutes } from "./protection.ts";
 import { receiptRoutes } from "./receipts.ts";
 import { vaultRoutes } from "./vault.ts";
@@ -17,7 +19,17 @@ export function createApp(path: string, secret: string) {
   );
   const db = openDatabase(path);
   const app = Fastify({ logger: false, bodyLimit: 1024 });
+  const timer = setInterval(() => {
+    try {
+      checkDue(db);
+    } catch {
+      app.log.error("Local recovery check failed");
+    }
+  }, 5000);
+  timer.unref();
+  app.addHook("onClose", async () => clearInterval(timer));
   identityRoutes(app, db);
+  app.register(recoveryRoutes, { prefix: "/api/v1/cases", db });
   app.register(protectionRoutes, { prefix: "/api/v1", db });
   app.register(receiptRoutes, { prefix: "/api/v1", db });
   app.register(vaultRoutes, { prefix: "/api/v1/purchases", db });
