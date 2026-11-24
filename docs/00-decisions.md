@@ -38,3 +38,11 @@
 
 ## Success test
 A user uploads a receipt, sees verified structured records, gets independently researched policy evidence and a real monitored issue, approves a grounded claim/follow-up, sees honest delivery/export status, and watches persisted state recover after Sprite interruption.
+
+## ADR-013 — External HTTPS wake signal (owner approved)
+
+SQLite owns deadlines, leases and progress. A sleeping Sprite cannot run its internal timer. Configure cron-job.org to send an empty HTTPS POST to the dedicated wake listener at minutes 0, 15, 30 and 45 UTC. Store a random 32-byte wake-only bearer token in a custom Authorization header. Keep response storage and redirects disabled. Configure a finite expiresAt before enabling any experiment, inspect history afterwards, then delete the job and revoke its token. The management API key belongs only on the provisioning client. Never give the scheduler a Sprite management token.
+
+Expose only the wake listener through the Sprite service HTTP port. Keep the journal API on loopback. Verify TLS, ingress authorization and empty failure responses before activation. A public ingress can wake compute before application authentication, so configure bounded trial expiry and monitor usage. The receiver authenticates before examining due work, coalesces authenticated calls within a minute per process and returns an empty success response. SQLite prevents duplicate notification effects across retries and restarts. Missed requests leave overdue work available for the next worker pass. Cold boot latency, scheduler outages and disabled jobs can delay checks. No guaranteed deadline or billing cap is implied.
+
+Alternatives considered include on-demand catch-up (no independent trigger), permanently awake workers (ongoing compute) and a second hosted scheduling service (additional cost and credentials). cron-job.org documents free scheduled HTTP requests, custom headers and a management API with account-level limits. Fifteen-minute operation implies up to 96 requests per day; the cost of waking the Sprite must be measured separately. See https://docs.cron-job.org/rest-api.html and https://cron-job.org/en/faq/.
