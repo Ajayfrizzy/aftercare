@@ -37,6 +37,13 @@ export default function Vault() {
   const [store, setStore] = useState(""),
     [after, setAfter] = useState(""),
     [view, setView] = useState("cards");
+  const [risk, setRisk] = useState("");
+  const [kindFilter, setKindFilter] = useState("");
+  const [checks, setChecks] = useState<
+    { purchaseId: string; state: string; kind: string }[]
+  >([]);
+  const [filterStatus, setFilterStatus] = useState("");
+  const [revision, setRevision] = useState(0);
   const [queue, setQueue] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   function selectReceipts(files: File[]) {
@@ -63,6 +70,26 @@ export default function Vault() {
       .catch(() => {})
       .finally(() => setReady(true));
   }, []);
+  useEffect(() => {
+    let current = true;
+    if (user && (risk || kindFilter)) {
+      setFilterStatus("Loading protection records…");
+      request("protection")
+        .then((rows) => {
+          if (current) {
+            setChecks(rows);
+            setFilterStatus("");
+          }
+        })
+        .catch(() => {
+          if (current)
+            setFilterStatus("Protection records could not be loaded.");
+        });
+    }
+    return () => {
+      current = false;
+    };
+  }, [user, risk, kindFilter, revision]);
   async function refresh() {
     setRecords(await request("purchases"));
   }
@@ -153,6 +180,13 @@ export default function Vault() {
   const matches = records.filter(
     (p) =>
       JSON.stringify(p).toLowerCase().includes(search.toLowerCase()) &&
+      (!(risk || kindFilter) ||
+        checks.some(
+          (c) =>
+            c.purchaseId === p.id &&
+            (!risk || risk === c.state) &&
+            (!kindFilter || kindFilter === c.kind),
+        )) &&
       (!store || p.merchant === store) &&
       (!after || p.date >= after),
   );
@@ -266,6 +300,9 @@ export default function Vault() {
                 try {
                   await request("auth/logout", "POST");
                   setQueue([]);
+                  setChecks([]);
+                  setRisk("");
+                  setKindFilter("");
                   setDraft({});
                   setUser("");
                   setRecords([]);
@@ -417,6 +454,38 @@ export default function Vault() {
                     </select>
                   </label>
                   <label>
+                    Protection type
+                    <select
+                      value={kindFilter}
+                      onChange={(e) => setKindFilter(e.target.value)}
+                    >
+                      <option value="">All types</option>
+                      {[
+                        "return",
+                        "warranty",
+                        "recall",
+                        "price",
+                        "delivery",
+                        "refund",
+                      ].map((k) => (
+                        <option key={k}>{k}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Risk status
+                    <select
+                      value={risk}
+                      onChange={(e) => setRisk(e.target.value)}
+                    >
+                      <option value="">All statuses</option>
+                      <option value="attention">Needs attention</option>
+                      <option value="unknown">Needs verification</option>
+                      <option value="monitoring">Monitoring</option>
+                      <option value="closed">Closed</option>
+                    </select>
+                  </label>
+                  <label>
                     Purchased since
                     <input
                       type="date"
@@ -437,7 +506,19 @@ export default function Vault() {
                     view === "cards" ? "purchase-cards" : "purchase-list"
                   }
                 >
-                  {records.length === 0 ? (
+                  {(risk || kindFilter) && filterStatus ? (
+                    <div>
+                      <output>{filterStatus}</output>
+                      {filterStatus.includes("could not") && (
+                        <button
+                          type="button"
+                          onClick={() => setRevision((v) => v + 1)}
+                        >
+                          Retry protection filters
+                        </button>
+                      )}
+                    </div>
+                  ) : records.length === 0 ? (
                     <p>Your vault is empty. Add your first purchase.</p>
                   ) : matches.length === 0 ? (
                     <p>No purchases match your search.</p>
@@ -450,7 +531,10 @@ export default function Vault() {
                           </span>
                           <h2>{p.merchant}</h2>
                         </div>
-                        <Protection purchase={p} />
+                        <Protection
+                          purchase={p}
+                          onSaved={() => setRevision((v) => v + 1)}
+                        />
                         <p>
                           {p.date} · {p.items.map((i) => i.name).join(", ")}
                         </p>

@@ -52,6 +52,7 @@ const labels: Record<string, string> = {
 const dates = new Set(["start", "expiresAt", "dueAt", "observedAt"]);
 const flags = new Set(["received", "sameSku", "sameCondition", "sameSeller"]);
 type Insight = {
+  caseId?: string;
   id: string;
   reason: string;
   deadline?: string;
@@ -62,7 +63,9 @@ type Insight = {
 };
 export function Protection({
   purchase,
+  onSaved,
 }: {
+  onSaved: () => void;
   purchase: { id: string; merchant: string; currency: string };
 }) {
   const [kind, setKind] = useState<Kind>("return"),
@@ -136,6 +139,7 @@ export function Protection({
         );
       await refresh();
       setMessage("Evidence saved.");
+      onSaved();
       form.reset();
     } catch (e) {
       setMessage((e as Error).message);
@@ -158,6 +162,9 @@ export function Protection({
           <h3>{names[r.evidence.kind]}</h3>
           <strong>{r.state}</strong>
           <p>{r.reason}</p>
+          {r.caseId && (
+            <a href={"/cases#case-" + r.caseId}>Open recovery case</a>
+          )}
           <p>
             Owner-reported · {r.evidence.region} ·{" "}
             {new Date(r.evidence.observedAt).toLocaleString()}

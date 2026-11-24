@@ -165,12 +165,17 @@ export async function protectionRoutes(
       }
       const records = db
         .prepare(
-          "SELECT id,record FROM protection_observations WHERE user_id=? AND purchase_id=? ORDER BY created_at DESC,id",
+          "SELECT o.id,o.record,c.observation_id AS caseId FROM protection_observations o LEFT JOIN recovery_cases c ON c.observation_id=o.id WHERE o.user_id=? AND o.purchase_id=? ORDER BY o.created_at DESC,o.id",
         )
         .all(owner, purchaseId);
       const data = records.map((row) => {
         const evidence = observation.parse(JSON.parse(String(row.record)));
-        return { id: row.id, evidence, ...evaluate(evidence, purchase, now) };
+        return {
+          id: row.id,
+          caseId: row.caseId,
+          evidence,
+          ...evaluate(evidence, purchase, now),
+        };
       });
       db.prepare(
         "UPDATE protection_checks SET last_checked_at=? WHERE last_checked_at IS NULL AND next_at<=? AND observation_id IN (SELECT id FROM protection_observations WHERE user_id=? AND purchase_id=?)",
