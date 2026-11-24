@@ -1,6 +1,7 @@
 "use client";
 import { useState, type FormEvent } from "react";
 import type { Observation } from "@aftercare/contracts";
+import { Research } from "./research";
 type Kind = Observation["kind"];
 const names: Record<Kind, string> = {
   return: "Return window",
@@ -53,6 +54,8 @@ const flags = new Set(["received", "sameSku", "sameCondition", "sameSeller"]);
 type Insight = {
   id: string;
   reason: string;
+  deadline?: string;
+  basis?: string;
   state: string;
   nextCheckAt: string | null;
   evidence: Observation;
@@ -66,6 +69,7 @@ export function Protection({
     [records, setRecords] = useState<Insight[]>([]),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false);
+  const [basis, setBasis] = useState("elapsed");
   const endpoint = `/api/v1/purchases/${purchase.id}/protection`;
   async function refresh() {
     const res = await fetch(endpoint, { cache: "no-store" });
@@ -109,6 +113,16 @@ export function Protection({
               ? Number(value)
               : value;
       }
+      if ((kind === "return" || kind === "warranty") && basis !== "elapsed") {
+        input.calendar = {
+          unit: basis,
+          zone: fields.get("zone"),
+          ...(basis === "date"
+            ? { date: fields.get("lastDate") }
+            : { count: Number(fields.get("count")) }),
+        };
+        input.days = 1;
+      }
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -131,6 +145,7 @@ export function Protection({
   }
   return (
     <details
+      className="protection-panel"
       onToggle={(e) => {
         if (e.currentTarget.open) void load();
       }}
@@ -147,18 +162,24 @@ export function Protection({
             Owner-reported · {r.evidence.region} ·{" "}
             {new Date(r.evidence.observedAt).toLocaleString()}
           </p>
+          {r.deadline && (
+            <p>
+              {r.basis} · Window closes {new Date(r.deadline).toLocaleString()}
+            </p>
+          )}
           <blockquote>{r.evidence.excerpt}</blockquote>
           <a href={r.evidence.source} target="_blank" rel="noreferrer">
             View evidence
           </a>
           {r.nextCheckAt && (
             <p>
-              Next check on wake after{" "}
+              Check due on next purchase view after{" "}
               {new Date(r.nextCheckAt).toLocaleString()}
             </p>
           )}
         </article>
       ))}
+      <Research purchaseId={purchase.id} />
       <form onSubmit={save}>
         <h3>Record protection evidence</h3>
         <label>
@@ -174,8 +195,50 @@ export function Protection({
             ))}
           </select>
         </label>
-        {["region", "source", "observedAt", "excerpt", ...inputs[kind]].map(
-          (key) => (
+        {(kind === "return" || kind === "warranty") && (
+          <fieldset>
+            <legend>Policy timing</legend>
+            <label>
+              Deadline basis
+              <select value={basis} onChange={(e) => setBasis(e.target.value)}>
+                <option value="elapsed">Estimated elapsed days</option>
+                <option value="date">
+                  Last eligible calendar date (inclusive)
+                </option>
+                <option value="days">Calendar days after start</option>
+                <option value="months">Calendar months after start</option>
+              </select>
+            </label>
+            {basis !== "elapsed" && (
+              <>
+                <label>
+                  Policy time zone
+                  <input name="zone" required placeholder="America/New_York" />
+                </label>
+                {basis === "date" ? (
+                  <label>
+                    Last eligible date
+                    <input name="lastDate" required type="date" />
+                  </label>
+                ) : (
+                  <label>
+                    Calendar periods
+                    <input
+                      name="count"
+                      required
+                      type="number"
+                      min="1"
+                      max="1200"
+                    />
+                  </label>
+                )}
+              </>
+            )}
+          </fieldset>
+        )}
+        {["region", "source", "observedAt", "excerpt", ...inputs[kind]]
+          .filter((key) => key !== "days" || basis === "elapsed")
+          .map((key) => (
             <label key={key}>
               {labels[key]}
               <input
@@ -195,8 +258,7 @@ export function Protection({
                 pattern={key === "region" ? "[A-Z]{2}" : undefined}
               />
             </label>
-          ),
-        )}
+          ))}
         <p>
           Times use your local time zone. Research and scheduled wake are
           awaiting verification.

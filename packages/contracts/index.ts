@@ -77,15 +77,40 @@ const evidence = z.strictObject({
   excerpt: z.string().trim().min(1).max(1500),
   merchant: z.string().trim().min(1).max(200),
 });
+const timeZone = z
+  .string()
+  .max(80)
+  .refine((v) => {
+    try {
+      new Intl.DateTimeFormat("en", { timeZone: v });
+      return !!v;
+    } catch {
+      return false;
+    }
+  });
+const calendar = z.discriminatedUnion("unit", [
+  z.strictObject({
+    unit: z.literal("date"),
+    date: z.iso.date(),
+    zone: timeZone,
+  }),
+  z.strictObject({
+    unit: z.enum(["days", "months"]),
+    count: z.number().int().min(1).max(1200),
+    zone: timeZone,
+  }),
+]);
 export const observation = z.discriminatedUnion("kind", [
   evidence.extend({
     kind: z.literal("return"),
+    calendar: calendar.optional(),
     start: instant,
     days: z.number().int().min(1).max(730),
     expiresAt: instant,
   }),
   evidence.extend({
     kind: z.literal("warranty"),
+    calendar: calendar.optional(),
     start: instant,
     days: z.number().int().min(1).max(36500),
     expiresAt: instant,
@@ -122,3 +147,19 @@ export const observation = z.discriminatedUnion("kind", [
   }),
 ]);
 export type Observation = z.infer<typeof observation>;
+export const researchRequest = z.discriminatedUnion("kind", [
+  z.strictObject({
+    kind: z.enum(["policy", "price"]),
+    region: z.string().regex(/^[A-Z]{2}$/),
+    domain: z
+      .string()
+      .max(253)
+      .regex(/^(?:[a-z0-9-]+\.)+[a-z]{2,}$/i),
+  }),
+  z.strictObject({
+    kind: z.literal("recall"),
+    region: z.literal("US"),
+    brand: z.string().trim().min(1).max(200),
+    model: z.string().trim().min(1).max(200),
+  }),
+]);

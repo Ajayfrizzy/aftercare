@@ -1,14 +1,76 @@
+import {
+  recallNotices,
+  researchPolicy,
+} from "../../packages/connectors/protection.ts";
 import type { FastifyInstance } from "fastify";
 import type { DatabaseSync } from "node:sqlite";
 import { createHash } from "node:crypto";
 import { sessionOwner } from "./identity.ts";
-import { observation } from "@aftercare/contracts";
+import { researchRequest, observation } from "@aftercare/contracts";
 import { evaluate } from "../../packages/domain/protection.ts";
 
 export async function protectionRoutes(
   app: FastifyInstance,
-  { db }: { db: DatabaseSync },
+  {
+    db,
+    providers,
+  }: {
+    db: DatabaseSync;
+    providers?: { gateway: URL; transport: typeof fetch };
+  },
 ) {
+  app.post<{ Params: { id: string } }>(
+    "/purchases/:id/research",
+    async (req, reply) => {
+      reply.header("cache-control", "no-store");
+      const owner = sessionOwner(db, req);
+      if (!owner)
+        return reply.code(401).send({ error: { code: "UNAUTHORIZED" } });
+      if (
+        req.headers.origin !==
+        (process.env.APP_BASE_URL ?? "http://localhost:3000")
+      )
+        return reply.code(403).send({ error: { code: "CSRF" } });
+      if (
+        !db
+          .prepare("SELECT id FROM purchases WHERE user_id=? AND id=?")
+          .get(owner, req.params.id)
+      )
+        return reply.code(404).send({ error: { code: "NOT_FOUND" } });
+      const parsed = researchRequest.safeParse(req.body);
+      if (!parsed.success)
+        return reply.code(422).send({ error: { code: "INVALID_RESEARCH" } });
+      if (!providers)
+        return reply
+          .code(503)
+          .send({ error: { code: "PROVIDER_GATE_PENDING" } });
+      const preferences = db
+        .prepare("SELECT preferences FROM users WHERE id=?")
+        .get(owner);
+      if (!JSON.parse(String(preferences?.preferences)).researchConsent)
+        return reply.code(403).send({ error: { code: "CONSENT_REQUIRED" } });
+      const input = parsed.data;
+      try {
+        const results =
+          input.kind === "recall"
+            ? await recallNotices(input.brand, input.model, providers.transport)
+            : await researchPolicy(
+                providers.gateway,
+                input.domain,
+                input.region,
+                providers.transport,
+              );
+        return {
+          data: results,
+          meta: { provenance: "retrieved", confidence: "requires_review" },
+        };
+      } catch {
+        return reply
+          .code(503)
+          .send({ error: { code: "PROVIDER_UNAVAILABLE" } });
+      }
+    },
+  );
   app.get("/protection", async (req, reply) => {
     reply.header("cache-control", "no-store");
     const owner = sessionOwner(db, req);
@@ -31,6 +93,8 @@ export async function protectionRoutes(
           merchant: purchase.merchant,
           kind: evidence.kind,
           source: evidence.source,
+          region: evidence.region,
+          observedAt: evidence.observedAt,
           ...evaluate(evidence, purchase, now),
         };
       })
@@ -85,7 +149,7 @@ export async function protectionRoutes(
           if (insight.nextCheckAt)
             db.prepare(
               "INSERT OR IGNORE INTO protection_checks VALUES(?,?,NULL)",
-            ).run(id, insight.nextCheckAt);
+            ).run(id, new Date(insight.nextCheckAt).toISOString());
           db.exec("COMMIT");
           return reply
             .code(write.changes ? 201 : 200)
@@ -109,7 +173,7 @@ export async function protectionRoutes(
       ).run(checked, checked, owner, purchaseId);
       return {
         data,
-        meta: { mode: "on_wake", checkedAt: checked, research: "unverified" },
+        meta: { mode: "on_read", checkedAt: checked, research: "unverified" },
       };
     },
   });

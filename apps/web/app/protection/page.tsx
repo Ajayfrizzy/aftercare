@@ -7,6 +7,10 @@ type Entry = {
   merchant: string;
   kind: string;
   source: string;
+  observedAt: string;
+  region: string;
+  deadline?: string;
+  basis?: string;
   state: string;
   reason: string;
   nextCheckAt: string | null;
@@ -67,6 +71,16 @@ export default function ProtectionCenter() {
                       {e.merchant} · {e.kind}
                     </h3>
                     <p>{e.reason}</p>
+                    <p>
+                      Owner-reported · {e.region} ·{" "}
+                      {new Date(e.observedAt).toLocaleString()}
+                    </p>
+                    {e.deadline && (
+                      <p>
+                        {e.basis} · Closes{" "}
+                        {new Date(e.deadline).toLocaleString()}
+                      </p>
+                    )}
                     <a href={e.source} rel="noreferrer" target="_blank">
                       Evidence source
                     </a>{" "}

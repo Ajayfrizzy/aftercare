@@ -6,7 +6,8 @@
   "scripts": {
     "test": "node --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "build": "pnpm --filter @aftercare/web build"
+    "build": "pnpm --filter @aftercare/web build",
+    "dev": "node scripts/dev.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.5",

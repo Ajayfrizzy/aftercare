@@ -182,6 +182,21 @@ test("protection form records and reads a delivery commitment", async ({
   await expect(
     page.getByText("Expected date passed. Receipt is unconfirmed."),
   ).toBeVisible();
+  await page
+    .getByText("Research policies and recall notices", { exact: true })
+    .press("Enter");
+  await page.getByLabel("Research region").fill("US");
+  await page.getByLabel("Merchant website domain").fill("example.org");
+  await page
+    .getByRole("button", { name: "Check research availability" })
+    .click();
+  await expect(
+    page.getByText(/External research is pending provider verification/),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Protection center" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Needs attention" }),
+  ).toBeVisible();
   for (const width of [390, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.emulateMedia({ colorScheme: width === 390 ? "dark" : "light" });

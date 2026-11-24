@@ -156,3 +156,126 @@ test("owner evidence is idempotent and foreign records are masked", async (t) =>
   assert.equal((await app.inject(input)).statusCode, 200);
   assert.equal((await app.inject({ url, headers })).json().data.length, 1);
 });
+for (const [label, start, calendar, end] of [
+  [
+    "spring DST",
+    "2026-03-07T17:00:00Z",
+    { unit: "days", count: 1, zone: "America/New_York" },
+    "2026-03-08T16:00:00.000Z",
+  ],
+  [
+    "month end",
+    "2026-01-31T12:00:00Z",
+    { unit: "months", count: 1, zone: "UTC" },
+    "2026-02-28T12:00:00.000Z",
+  ],
+  [
+    "inclusive date",
+    "2026-11-01T00:00:00Z",
+    { unit: "date", date: "2026-11-23", zone: "Africa/Lagos" },
+    "2026-11-23T23:00:00.000Z",
+  ],
+] as const)
+  test(label, () => {
+    const input = observation.parse({
+      ...basic,
+      ...window,
+      observedAt: start,
+      start,
+      kind: "return",
+      calendar,
+    });
+    const before = evaluate(input, purchase, Date.parse(end) - 1);
+    assert.equal(before.nextCheckAt, end);
+    assert.equal(evaluate(input, purchase, Date.parse(end)).state, "closed");
+  });
+
+test("research gate and durable read-triggered check survive retries and reopen", async (t) => {
+  const { mkdtempSync, rmSync } = await import("node:fs"),
+    { join } = await import("node:path"),
+    { tmpdir } = await import("node:os");
+  const { openDatabase } = await import("../packages/db/index.ts");
+  const dir = mkdtempSync(join(tmpdir(), "aftercare-m2-"));
+  t.after(() => rmSync(dir, { recursive: true }));
+  const path = join(dir, "vault.sqlite"),
+    app = createApp(path, "x".repeat(32));
+  t.after(() => app.close());
+  const origin = "http://localhost:3000";
+  const user = await app.inject({
+    method: "POST",
+    url: "/api/v1/auth/register",
+    headers: { origin },
+    payload: {
+      email: "checks@example.org",
+      password: "synthetic local password",
+    },
+  });
+  const headers = {
+    origin,
+    cookie: String(user.headers["set-cookie"]).split(";")[0],
+  };
+  const p = await app.inject({
+    method: "POST",
+    url: "/api/v1/purchases",
+    headers,
+    payload: {
+      ...purchase,
+      date: "2026-01-01",
+      items: [{ name: "Pen", minor: "100" }],
+    },
+  });
+  const base = `/api/v1/purchases/${p.json().data.id}`;
+  const research = {
+    method: "POST" as const,
+    url: `${base}/research`,
+    headers,
+    payload: { kind: "policy", domain: "example.org", region: "US" },
+  };
+  assert.equal((await app.inject(research)).statusCode, 503);
+  assert.equal(
+    (await app.inject({ ...research, headers: { origin } })).statusCode,
+    401,
+  );
+  const db = openDatabase(path);
+  t.after(() => db.close());
+  db.exec(
+    "CREATE TRIGGER fail_check BEFORE INSERT ON protection_checks BEGIN SELECT RAISE(ABORT,'interrupted'); END",
+  );
+  const action = {
+    method: "POST" as const,
+    url: `${base}/protection`,
+    headers,
+    payload: {
+      ...basic,
+      observedAt: "2020-01-01T00:00:00Z",
+      kind: "delivery",
+      received: false,
+      dueAt: "2099-01-01T00:00:00Z",
+    },
+  };
+  assert.equal((await app.inject(action)).statusCode, 500);
+  assert.equal(
+    db.prepare("SELECT count(*) AS n FROM protection_observations").get()?.n,
+    0,
+  );
+  db.exec("DROP TRIGGER fail_check");
+  assert.equal((await app.inject(action)).statusCode, 201);
+  assert.equal((await app.inject(action)).statusCode, 200);
+  db.exec("UPDATE protection_checks SET next_at='2020-01-01T00:00:00.000Z'");
+  await app.inject({ url: action.url, headers });
+  const stamp = db
+    .prepare("SELECT last_checked_at FROM protection_checks")
+    .get()?.last_checked_at;
+  assert.equal(typeof stamp, "string");
+  await app.inject({ url: action.url, headers });
+  const reopened = openDatabase(path);
+  try {
+    assert.equal(
+      reopened.prepare("SELECT last_checked_at FROM protection_checks").get()
+        ?.last_checked_at,
+      stamp,
+    );
+  } finally {
+    reopened.close();
+  }
+});

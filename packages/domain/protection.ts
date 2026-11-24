@@ -1,3 +1,4 @@
+import { Temporal } from "@js-temporal/polyfill";
 import type { Observation } from "../contracts/index.ts";
 export function evaluate(
   input: Observation,
@@ -23,19 +24,41 @@ export function evaluate(
   switch (input.kind) {
     case "return":
     case "warranty": {
-      const end = Date.parse(input.start) + input.days * 86400000;
+      const rule = input.calendar;
+      const start = Temporal.Instant.from(input.start);
+      const end = !rule
+        ? Date.parse(input.start) + input.days * 86400000
+        : rule.unit === "date"
+          ? Temporal.PlainDate.from(rule.date)
+              .add({ days: 1 })
+              .toZonedDateTime(rule.zone).epochMilliseconds
+          : start
+              .toZonedDateTimeISO(rule.zone)
+              .add(
+                rule.unit === "days"
+                  ? { days: rule.count }
+                  : { months: rule.count },
+              ).epochMilliseconds;
+      const basis = rule
+        ? `Owner-reported calendar rule in ${rule.zone}`
+        : "Estimated 24-hour duration";
+
       const remaining = end - now;
-      return result(
-        remaining <= 0
-          ? "closed"
-          : remaining <= 7 * 86400000
-            ? "attention"
-            : "monitoring",
-        remaining <= 0
-          ? "Estimated window has elapsed."
-          : "Estimated deadline using the recorded duration.",
-        remaining > 0 ? new Date(end).toISOString() : null,
-      );
+      return {
+        ...result(
+          remaining <= 0
+            ? "closed"
+            : remaining <= 7 * 86400000
+              ? "attention"
+              : "monitoring",
+          remaining <= 0
+            ? "Estimated window has elapsed."
+            : "Estimated deadline using the recorded duration.",
+          remaining > 0 ? new Date(end).toISOString() : null,
+        ),
+        deadline: new Date(end).toISOString(),
+        basis,
+      };
     }
     case "delivery":
     case "refund":

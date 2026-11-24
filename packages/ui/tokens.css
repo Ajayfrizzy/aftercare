@@ -190,3 +190,26 @@ section {
     height: 48vh;
   }
 }
+.protection-panel {
+  margin-block: 1rem;
+  border-block: 1px solid var(--accent);
+  padding-block: 0.5rem;
+}
+.protection-panel article {
+  padding: 1rem;
+  border-inline-start: 3px solid var(--accent);
+  background: var(--canvas);
+  overflow-wrap: anywhere;
+}
+.protection-panel select {
+  min-height: 44px;
+  border-radius: 10px;
+  padding: 0.6rem;
+  font: inherit;
+  color: var(--ink);
+  background: var(--canvas);
+}
+.protection-panel blockquote {
+  margin: 1rem 0;
+  font-family: Georgia, serif;
+}
