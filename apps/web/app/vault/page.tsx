@@ -1,4 +1,5 @@
 "use client";
+import { Protection } from "./protection";
 import Items from "./items";
 import Preferences from "./preferences";
 import { useState, useEffect, type FormEvent } from "react";
@@ -199,6 +200,7 @@ export default function Vault() {
             />
           </div>
           <nav aria-label="Purchase vault actions">
+            <a href="/protection">Protection center</a>
             <button
               type="button"
               onClick={() => {
@@ -341,7 +343,8 @@ export default function Vault() {
                     <p>No purchases match your search.</p>
                   ) : (
                     matches.map((p) => (
-                      <article key={p.id}>
+                      <article id={`purchase-${p.id}`} key={p.id}>
+                        <Protection purchase={p} />
                         <h2>{p.merchant}</h2>
                         <p>
                           {p.date} · {p.items.map((i) => i.name).join(", ")}

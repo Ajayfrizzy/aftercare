@@ -10,4 +10,7 @@ app.addHook("onRequest", async (_req, reply) => {
     return reply.code(503).send();
   }
 });
-await app.listen({ host: "127.0.0.1", port: 3101 });
+await app.listen({
+  host: "127.0.0.1",
+  port: Number(process.env.AFTERCARE_API_PORT ?? 3101),
+});

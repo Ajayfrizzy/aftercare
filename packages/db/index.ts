@@ -21,6 +21,7 @@ export function openDatabase(path: string) {
       "receipts.sql",
       "preferences.sql",
       "review.sql",
+      "protection.sql",
     ];
     if (typeof version !== "number" || version > migrations.length + 1)
       throw new Error("Unsupported database version");

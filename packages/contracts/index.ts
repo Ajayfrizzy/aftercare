@@ -67,3 +67,58 @@ export const reviewPatch = z.strictObject({
     ),
   value: z.string().max(4000),
 });
+
+const instant = z.iso.datetime({ offset: true });
+const minor = z.string().regex(/^\d{1,18}$/);
+const evidence = z.strictObject({
+  region: z.string().regex(/^[A-Z]{2}$/),
+  source: z.url({ protocol: /^https$/ }).max(2048),
+  observedAt: instant,
+  excerpt: z.string().trim().min(1).max(1500),
+  merchant: z.string().trim().min(1).max(200),
+});
+export const observation = z.discriminatedUnion("kind", [
+  evidence.extend({
+    kind: z.literal("return"),
+    start: instant,
+    days: z.number().int().min(1).max(730),
+    expiresAt: instant,
+  }),
+  evidence.extend({
+    kind: z.literal("warranty"),
+    start: instant,
+    days: z.number().int().min(1).max(36500),
+    expiresAt: instant,
+  }),
+  evidence.extend({
+    kind: z.literal("delivery"),
+    dueAt: instant,
+    received: z.boolean(),
+  }),
+  evidence.extend({
+    kind: z.literal("refund"),
+    dueAt: instant,
+    amountMinor: minor,
+    currency: z.string().regex(/^[A-Z]{3}$/),
+    received: z.boolean(),
+  }),
+  evidence.extend({
+    kind: z.literal("price"),
+    paidMinor: minor,
+    offerMinor: minor,
+    currency: z.string().regex(/^[A-Z]{3}$/),
+    sameSku: z.boolean(),
+    sameCondition: z.boolean(),
+    sameSeller: z.boolean(),
+    policySource: z.url({ protocol: /^https$/ }),
+    expiresAt: instant,
+  }),
+  evidence.extend({
+    kind: z.literal("recall"),
+    brand: z.string().min(1),
+    model: z.string().min(1),
+    noticeBrand: z.string().min(1),
+    noticeModel: z.string().min(1),
+  }),
+]);
+export type Observation = z.infer<typeof observation>;

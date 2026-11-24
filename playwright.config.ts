@@ -9,7 +9,7 @@ export default defineConfig({
   webServer: [
     {
       command: "node tests/browser/api-fixture.ts",
-      port: 3101,
+      port: Number(process.env.AFTERCARE_API_PORT ?? 3101),
       env: {
         APP_BASE_URL: "http://127.0.0.1:3100",
         PRIVATE_UPLOAD_DIR: `/tmp/aftercare-m1-${randomBytes(10).toString("hex")}`,

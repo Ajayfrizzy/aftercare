@@ -3,7 +3,7 @@ export default {
     return [
       {
         source: "/api/v1/:path*",
-        destination: "http://127.0.0.1:3101/api/v1/:path*",
+        destination: `http://127.0.0.1:${process.env.AFTERCARE_API_PORT ?? 3101}/api/v1/:path*`,
       },
     ];
   },

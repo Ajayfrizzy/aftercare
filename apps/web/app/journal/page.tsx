@@ -4,10 +4,13 @@ import Link from "next/link";
 
 export default async function Journal() {
   const authorization = (await headers()).get("authorization") ?? "";
-  const response = await fetch("http://127.0.0.1:3101/api/v1/overview", {
-    headers: { authorization },
-    cache: "no-store",
-  }).catch(() => null);
+  const response = await fetch(
+    `http://127.0.0.1:${process.env.AFTERCARE_API_PORT ?? 3101}/api/v1/overview`,
+    {
+      headers: { authorization },
+      cache: "no-store",
+    },
+  ).catch(() => null);
   if (!response?.ok)
     return (
       <>

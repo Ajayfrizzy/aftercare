@@ -1,3 +1,4 @@
+import { protectionRoutes } from "./protection.ts";
 import { receiptRoutes } from "./receipts.ts";
 import { vaultRoutes } from "./vault.ts";
 import { identityRoutes } from "./identity.ts";
@@ -17,6 +18,7 @@ export function createApp(path: string, secret: string) {
   const db = openDatabase(path);
   const app = Fastify({ logger: false, bodyLimit: 1024 });
   identityRoutes(app, db);
+  app.register(protectionRoutes, { prefix: "/api/v1", db });
   app.register(receiptRoutes, { prefix: "/api/v1", db });
   app.register(vaultRoutes, { prefix: "/api/v1/purchases", db });
   app.addHook("onClose", async () => db.close());

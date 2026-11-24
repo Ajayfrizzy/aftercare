@@ -141,3 +141,56 @@ for (const width of [390, 1440]) {
     });
   });
 }
+
+test("protection form records and reads a delivery commitment", async ({
+  page,
+  baseURL,
+}) => {
+  await page.goto("/vault");
+  const setup = await page.evaluate(async (origin) => {
+    const post = (path: string, body: unknown) =>
+      fetch(`${origin}/api/v1/${path}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    await post("auth/register", {
+      email: "protection@example.org",
+      password: "synthetic-protection",
+    });
+    return (
+      await post("purchases", {
+        merchant: "Paper shop",
+        date: "2026-11-01",
+        currency: "USD",
+        items: [{ name: "Pen", minor: "100" }],
+      })
+    ).status;
+  }, baseURL);
+  expect(setup).toBe(201);
+  await page.reload();
+  await page.getByText("Purchase protection", { exact: true }).press("Enter");
+  await page.getByLabel("Protection type").selectOption("delivery");
+  await page.getByLabel("Country code").fill("US");
+  await page.getByLabel("Evidence URL").fill("https://example.org/order");
+  await page.getByLabel("Source observed at").fill("2026-11-01T12:00");
+  await page
+    .getByLabel("Evidence excerpt")
+    .fill("Synthetic delivery commitment");
+  await page.getByLabel("Expected by").fill("2026-11-02T12:00");
+  await page.getByRole("button", { name: "Save evidence" }).click();
+  await expect(
+    page.getByText("Expected date passed. Receipt is unconfirmed."),
+  ).toBeVisible();
+  for (const width of [390, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ colorScheme: width === 390 ? "dark" : "light" });
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBe(width);
+    await page.screenshot({
+      path: `docs/evidence/screens/m2-protection-${width}.png`,
+      fullPage: true,
+    });
+  }
+});
