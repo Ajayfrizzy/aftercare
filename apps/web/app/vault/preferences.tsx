@@ -4,10 +4,12 @@ export default function Preferences({
   onEntry,
   onImport,
   initialGuide = false,
+  settings = false,
 }: {
   onEntry: () => void;
   onImport: () => void;
   initialGuide?: boolean;
+  settings?: boolean;
 }) {
   const [data, setData] = useState<{
     locale: string;
@@ -25,9 +27,9 @@ export default function Preferences({
       .catch(() => setStatus("Profile unavailable."));
   }, []);
   return (
-    <details open={step > 0 || undefined}>
+    <details open={settings || step > 0 || undefined}>
       <summary>Profile and consent</summary>
-      {step === 0 && (
+      {step === 0 && !settings && (
         <button type="button" onClick={() => setStep(1)}>
           Start setup guide
         </button>

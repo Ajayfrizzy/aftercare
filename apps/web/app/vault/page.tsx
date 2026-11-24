@@ -34,6 +34,9 @@ async function request(path: string, method = "GET", data?: unknown) {
 }
 export default function Vault() {
   const [draft, setDraft] = useState<Record<string, string>>({});
+  const [store, setStore] = useState(""),
+    [after, setAfter] = useState(""),
+    [view, setView] = useState("cards");
   const [artifact, setArtifact] = useState("");
   const [user, setUser] = useState(""),
     [ready, setReady] = useState(false),
@@ -100,8 +103,44 @@ export default function Vault() {
       setMessage((err as Error).message);
     }
   }
-  const matches = records.filter((p) =>
-    JSON.stringify(p).toLowerCase().includes(search.toLowerCase()),
+  async function importReceipt(file: File) {
+    const body = new FormData();
+    body.append("file", file);
+    try {
+      const response = await fetch("/api/v1/artifacts/upload", {
+        method: "POST",
+        body,
+      });
+      if (!response.ok)
+        throw new Error("Upload failed. Use a supported file under 10 MB.");
+      const { data } = await response.json();
+      const history: {
+        field: string;
+        value: string;
+        status: string;
+      }[] = await request(`artifacts/${data.id}/review`);
+      if (history.some((row) => row.status === "confirmed")) {
+        setMessage("This receipt has already been confirmed.");
+        return;
+      }
+      setDraft(
+        Object.fromEntries(history.map((row) => [row.field, row.value])),
+      );
+      setArtifact(data.id);
+      setSelected(null);
+      setEdit(true);
+      setMessage(
+        "Review your receipt and enter the purchase details. AI extraction is unavailable.",
+      );
+    } catch (error) {
+      setMessage((error as Error).message);
+    }
+  }
+  const matches = records.filter(
+    (p) =>
+      JSON.stringify(p).toLowerCase().includes(search.toLowerCase()) &&
+      (!store || p.merchant === store) &&
+      (!after || p.date >= after),
   );
   if (!ready) return <output>Opening your vault…</output>;
   return (
@@ -139,52 +178,24 @@ export default function Vault() {
         </form>
       ) : (
         <>
-          <label>
+          <label
+            className="receipt-drop"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              const file = e.dataTransfer.files[0];
+              if (file) void importReceipt(file);
+            }}
+          >
             Import receipt
             <input
               id="receipt-file"
               type="file"
               accept="application/pdf,image/png,image/jpeg,text/plain"
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
+              onChange={(e) => {
+                const file = e.currentTarget.files?.[0];
                 e.currentTarget.value = "";
-                setMessage("Uploading receipt…");
-                const body = new FormData();
-                body.append("file", file);
-                try {
-                  const response = await fetch("/api/v1/artifacts/upload", {
-                    method: "POST",
-                    body,
-                  });
-                  if (!response.ok)
-                    throw new Error(
-                      "Upload failed. Use a supported file under 10 MB.",
-                    );
-                  const { data } = await response.json();
-                  const history: {
-                    field: string;
-                    value: string;
-                    status: string;
-                  }[] = await request(`artifacts/${data.id}/review`);
-                  if (history.some((row) => row.status === "confirmed")) {
-                    setMessage("This receipt has already been confirmed.");
-                    return;
-                  }
-                  setDraft(
-                    Object.fromEntries(
-                      history.map((row) => [row.field, row.value]),
-                    ),
-                  );
-                  setArtifact(data.id);
-                  setSelected(null);
-                  setEdit(true);
-                  setMessage(
-                    "Review your receipt and enter the purchase details. AI extraction is unavailable.",
-                  );
-                } catch (error) {
-                  setMessage((error as Error).message);
-                }
+                if (file) void importReceipt(file);
               }}
             />
           </label>
@@ -337,7 +348,42 @@ export default function Vault() {
                     onChange={(e) => setSearch(e.target.value)}
                   />
                 </label>
-                <section>
+                <div className="vault-filters">
+                  <label>
+                    Merchant
+                    <select
+                      value={store}
+                      onChange={(e) => setStore(e.target.value)}
+                    >
+                      <option value="">All merchants</option>
+                      {Array.from(new Set(records.map((p) => p.merchant)))
+                        .sort()
+                        .map((m) => (
+                          <option key={m}>{m}</option>
+                        ))}
+                    </select>
+                  </label>
+                  <label>
+                    Purchased since
+                    <input
+                      type="date"
+                      value={after}
+                      onChange={(e) => setAfter(e.target.value)}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    aria-pressed={view === "list"}
+                    onClick={() => setView(view === "cards" ? "list" : "cards")}
+                  >
+                    Compact list
+                  </button>
+                </div>
+                <section
+                  className={
+                    view === "cards" ? "purchase-cards" : "purchase-list"
+                  }
+                >
                   {records.length === 0 ? (
                     <p>Your vault is empty. Add your first purchase.</p>
                   ) : matches.length === 0 ? (
@@ -345,8 +391,13 @@ export default function Vault() {
                   ) : (
                     matches.map((p) => (
                       <article id={`purchase-${p.id}`} key={p.id}>
+                        <div className="merchant-heading">
+                          <span aria-hidden="true">
+                            {p.merchant.slice(0, 1)}
+                          </span>
+                          <h2>{p.merchant}</h2>
+                        </div>
                         <Protection purchase={p} />
-                        <h2>{p.merchant}</h2>
                         <p>
                           {p.date} · {p.items.map((i) => i.name).join(", ")}
                         </p>
