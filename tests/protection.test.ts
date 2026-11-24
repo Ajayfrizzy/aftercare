@@ -82,8 +82,19 @@ test("connector contract uses granted gateway, primary-domain extract and no cre
       return Response.json({
         results:
           paths.length === 1
-            ? [{ url: basic.source }, { url: "https://other.example/p" }]
-            : [{ url: basic.source, raw_content: "Sample return policy" }],
+            ? [
+                { url: basic.source },
+                { url: "https://example.org/reseller" },
+                { url: "https://other.example/p" },
+              ]
+            : [
+                { url: basic.source, raw_content: "Sample return policy" },
+                {
+                  url: basic.source,
+                  raw_content: "Returns under the reseller agreement",
+                },
+                { url: basic.source, raw_content: "Store opening hours" },
+              ],
       });
     },
   );
