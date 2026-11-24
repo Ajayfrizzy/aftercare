@@ -88,8 +88,20 @@ export default function Page() {
       <section>
         <h2>Connected services</h2>
         <dl>
-          <dt>Receipt inference and Tavily research</dt>
-          <dd>Pending free provider and Sprite connector verification.</dd>
+          <dt>Receipt extraction</dt>
+          <dd>
+            Manual review is available. Free inference awaits verification.
+          </dd>
+          <dt>Merchant policy research</dt>
+          <dd>
+            Live research awaits a verified Sprite-scoped Tavily connection.
+          </dd>
+          <dt>Provider spending</dt>
+          <dd>
+            Personal spending budget: $0. Promotional credit balances and
+            provider usage are unavailable in this journal. Paid fallback is
+            disabled.
+          </dd>
           <dt>Scheduled monitoring</dt>
           <dd>
             Local checks run while the service is awake. Scheduled Sprite wake
