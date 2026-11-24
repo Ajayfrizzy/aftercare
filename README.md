@@ -28,10 +28,19 @@
 
 **Evidence labels:** `PROPOSED` means specification only; `VERIFIED` needs an actual command/test artifact; `BLOCKED` means unresolved. Demo fixtures must be plainly marked synthetic.
 
-## Local M0 demo
+## Run Aftercare locally
 
-Use Node 24.22.1 and pnpm 9.15.9. Run `pnpm install --frozen-lockfile`, then `pnpm typecheck`, `pnpm test`, and `pnpm build`.
-Set DEMO_SECRET to a private, randomly generated password of at least 32 characters in the API environment.
-Start `pnpm --filter @aftercare/api start` and, in another terminal, `pnpm --filter @aftercare/web start --hostname 127.0.0.1`.
-Open localhost:3000 and select Open private demo. Enter username demo and the configured password.
-This read-only local preview contains a synthetic journal. Account registration belongs to M1.
+From the repository root, use Node 24.22.1 and pnpm 9.15.9.
+
+```sh
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+Open **http://127.0.0.1:3000/vault**. Select **Create an account**, enter an email and a password of at least 12 characters, and select **Create account**. Returning users enter their credentials and select **Sign in**. Use the exact origin above for the session and origin checks.
+
+The launcher starts Next.js on port 3000 and Fastify on loopback port 3101. The API creates and migrates SQLite on startup. Accounts and purchases persist in `apps/api/aftercare.sqlite`; uploads default to `apps/api/private-uploads/`. Ctrl-C stops both processes. Restart after API code changes.
+
+No environment variables are required with the launcher. It sets APP_BASE_URL and generates a temporary DEMO_SECRET. For the separate read-only journal, set DEMO_SECRET to a private password of at least 32 characters before startup and use Basic username demo. SQLITE_PATH and PRIVATE_UPLOAD_DIR accept absolute override paths.
+
+For separate terminals, start the API from the root with `APP_BASE_URL=http://127.0.0.1:3000 pnpm --filter @aftercare/api start` after exporting DEMO_SECRET. Start the frontend with `pnpm --filter @aftercare/web dev --webpack --hostname 127.0.0.1 --port 3000`. Keep both ports free.
