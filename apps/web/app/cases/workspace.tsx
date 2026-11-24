@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+type Receipt = { id: string; sha: string; mime: string; bytes: number };
 type Case = {
   id: string;
   state: string;
@@ -10,7 +11,11 @@ type Case = {
   notes: { status: string; note: string; created_at: string }[];
   suggestion: string;
   activeApproval: { id: string; expires_at: string } | null;
+  receipts: Receipt[];
   draft: {
+    redact: string;
+    preview: string;
+    attachments: Receipt[];
     version: number;
     content_hash: string;
     body: string;
@@ -58,13 +63,17 @@ export function CaseWorkspace({
       const result = (await r.json()).data;
       if (name === "export") {
         const url = URL.createObjectURL(
-          new Blob([`Recipient: ${result.recipient}\n\n${result.body}`], {
-            type: "text/plain",
-          }),
+          result.attachments?.length
+            ? new Blob([JSON.stringify(result)], { type: "application/json" })
+            : new Blob([`Recipient: ${result.recipient}\n\n${result.body}`], {
+                type: "text/plain",
+              }),
         );
         const link = document.createElement("a");
         link.href = url;
-        link.download = "aftercare-claim.txt";
+        link.download = result.attachments?.length
+          ? "aftercare-claim.json"
+          : "aftercare-claim.txt";
         link.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
@@ -151,11 +160,12 @@ export function CaseWorkspace({
                 key={c.draft?.version ?? 0}
                 onSubmit={(e) => {
                   e.preventDefault();
-                  void action(
-                    c,
-                    "draft",
-                    Object.fromEntries(new FormData(e.currentTarget)),
-                  );
+                  void action(c, "draft", {
+                    ...Object.fromEntries(new FormData(e.currentTarget)),
+                    attachments: new FormData(e.currentTarget).getAll(
+                      "attachments",
+                    ),
+                  });
                 }}
               >
                 <label>
@@ -175,6 +185,46 @@ export function CaseWorkspace({
                     defaultValue={c.draft?.body ?? c.suggestion}
                   />
                 </label>
+                <label>
+                  Hide exact text in claim body
+                  <input
+                    name="redact"
+                    maxLength={200}
+                    defaultValue={c.draft?.redact}
+                  />
+                </label>
+                <fieldset>
+                  <legend>Receipt attachments</legend>
+                  <p>
+                    Selected files are included in full. Body redactions apply
+                    only to the letter.
+                  </p>
+                  {c.receipts.length === 0 && (
+                    <p>No confirmed receipt for this purchase.</p>
+                  )}
+                  {c.receipts.map((f) => (
+                    <div key={f.id}>
+                      <label>
+                        <input
+                          name="attachments"
+                          type="checkbox"
+                          value={f.id}
+                          defaultChecked={c.draft?.attachments.some(
+                            (a) => a.id === f.id,
+                          )}
+                        />{" "}
+                        {f.mime} · {f.bytes} bytes · {f.sha.slice(0, 12)}
+                      </label>
+                      <a
+                        href={"/api/v1/artifacts/" + f.id + "/preview"}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Inspect receipt
+                      </a>
+                    </div>
+                  ))}
+                </fieldset>
                 <button type="submit">Save draft</button>
               </form>
             )}
@@ -182,7 +232,12 @@ export function CaseWorkspace({
               <details open={approvalsOnly || undefined}>
                 <summary>Review saved version {c.draft.version}</summary>
                 <p>For {c.draft.recipient}</p>
-                <p className="letter">{c.draft.body}</p>
+                <p className="letter">{c.draft.preview}</p>
+                {c.draft.attachments.map((f) => (
+                  <p key={f.id}>
+                    Full attachment · {f.mime} · {f.bytes} bytes · {f.sha}
+                  </p>
+                ))}
                 <p>
                   Approval permits a single download of this version for ten
                   minutes.

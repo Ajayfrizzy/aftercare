@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { randomUUID, createHash } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import type { FastifyInstance } from "fastify";
@@ -15,6 +17,16 @@ export async function recoveryRoutes(
 ) {
   const cases =
     "SELECT c.*,o.record FROM recovery_cases c JOIN protection_observations o ON o.id=c.observation_id WHERE o.user_id=?";
+  function receipts(caseId: string, owner: string) {
+    return db
+      .prepare(
+        "SELECT a.id,a.sha,a.mime,a.bytes FROM protection_observations o JOIN receipt_evidence e ON e.purchase_id=o.purchase_id AND e.user_id=o.user_id JOIN artifacts a ON a.id=e.artifact_id AND a.user_id=e.user_id WHERE o.id=? AND o.user_id=? ORDER BY a.id",
+      )
+      .all(caseId, owner);
+  }
+  function preview(body: string, redact: string) {
+    return redact ? body.replaceAll(redact, "[redacted]") : body;
+  }
   app.addHook("onRequest", async (req, reply) => {
     reply.header("cache-control", "no-store");
     if (!sessionOwner(db, req))
@@ -131,7 +143,15 @@ export async function recoveryRoutes(
           state: row.state,
           reason: row.reason,
           evidence,
-          draft,
+          receipts: receipts(
+            String(row.observation_id),
+            String(sessionOwner(db, req)),
+          ),
+          draft: draft && {
+            ...draft,
+            attachments: JSON.parse(String(draft.manifest)),
+            preview: preview(String(draft.body), String(draft.redact)),
+          },
           activeApproval: draft
             ? (db
                 .prepare(
@@ -176,6 +196,16 @@ export async function recoveryRoutes(
         let data: unknown;
         if (action === "draft") {
           const input = recoveryDraft.parse(req.body);
+          const allowed = receipts(id, String(owner));
+          const selected = allowed.filter((file) =>
+            input.attachments.includes(String(file.id)),
+          );
+          if (
+            selected.length !== input.attachments.length ||
+            (input.redact && !input.body.includes(input.redact))
+          )
+            throw Error("STALE");
+          const manifest = JSON.stringify(selected);
           const version = Number(draft?.version ?? 0) + 1;
           const hash = createHash("sha256")
             .update(
@@ -185,16 +215,22 @@ export async function recoveryRoutes(
                 "export",
                 input.recipient,
                 input.body,
+                manifest,
+                input.redact,
               ]),
             )
             .digest("hex");
-          db.prepare("INSERT INTO recovery_drafts VALUES(?,?,?,?,?,?)").run(
+          db.prepare(
+            "INSERT INTO recovery_drafts(case_id,version,recipient,body,content_hash,created_at,manifest,redact) VALUES(?,?,?,?,?,?,?,?)",
+          ).run(
             id,
             version,
             input.recipient,
             input.body,
             hash,
             now,
+            manifest,
+            input.redact,
           );
           db.prepare(
             "UPDATE recovery_approvals SET revoked_at=? WHERE case_id=? AND consumed_at IS NULL AND revoked_at IS NULL",
@@ -237,6 +273,31 @@ export async function recoveryRoutes(
         } else if (action === "export" || action === "revoke") {
           const token = (req.body as { approvalId?: string })?.approvalId;
           if (!draft || typeof token !== "string") throw Error("STALE");
+          const attachments = [];
+          if (action === "export") {
+            const current = receipts(id, String(owner));
+            for (const file of JSON.parse(String(draft.manifest))) {
+              if (
+                !current.some(
+                  (row) =>
+                    row.id === file.id &&
+                    row.sha === file.sha &&
+                    row.mime === file.mime &&
+                    row.bytes === file.bytes,
+                )
+              )
+                throw Error("STALE");
+              const bytes = readFileSync(
+                join(
+                  process.env.PRIVATE_UPLOAD_DIR ?? "private-uploads",
+                  file.id,
+                ),
+              );
+              if (createHash("sha256").update(bytes).digest("hex") !== file.sha)
+                throw Error("STALE");
+              attachments.push({ ...file, base64: bytes.toString("base64") });
+            }
+          }
           const field = action === "export" ? "consumed_at" : "revoked_at";
           if (
             !db
@@ -259,7 +320,12 @@ export async function recoveryRoutes(
             );
           data =
             action === "export"
-              ? { body: draft.body, recipient: draft.recipient, status: state }
+              ? {
+                  body: preview(String(draft.body), String(draft.redact)),
+                  recipient: draft.recipient,
+                  attachments,
+                  status: state,
+                }
               : { status: state };
         } else {
           db.exec("ROLLBACK");

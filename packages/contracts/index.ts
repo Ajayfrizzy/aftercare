@@ -165,6 +165,8 @@ export const researchRequest = z.discriminatedUnion("kind", [
 ]);
 export const recoveryDraft = z.strictObject({
   recipient: z.string().trim().min(1).max(200),
+  attachments: z.array(z.uuid()).max(4).default([]),
+  redact: z.string().max(200).default(""),
   body: z.string().trim().min(1).max(8000),
 });
 export const approvalRequest = z.strictObject({

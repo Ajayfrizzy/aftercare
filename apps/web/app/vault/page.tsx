@@ -251,7 +251,9 @@ export default function Vault() {
           {queue.length > 0 && (
             <section aria-label="Receipt queue">
               <p>
-                {queue.length} waiting for review. Next receipt: {queue[0].name}
+                {queue.length} waiting in this browser tab. Reloading clears
+                waiting files. Confirmed purchases are saved. Next receipt:{" "}
+                {queue[0].name}
               </p>
               <button
                 type="button"

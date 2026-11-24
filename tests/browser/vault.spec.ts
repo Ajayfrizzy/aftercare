@@ -254,7 +254,16 @@ test("review, approve and download an evidence-linked recovery draft", async ({
       { timeout: 12000 },
     )
     .toBe(1);
-  await page.goto("/cases");
+  await page.reload();
+  await page
+    .getByLabel("Filter by protection category")
+    .selectOption("delivery");
+  await page.getByLabel("Risk status").selectOption("closed");
+  await expect(page.getByText("No purchases match your search.")).toBeVisible();
+  await page.getByLabel("Risk status").selectOption("attention");
+  await page.getByText("Purchase protection", { exact: true }).click();
+  await page.getByRole("link", { name: "Open recovery case" }).click();
+  await expect(page).toHaveURL(/\/cases#case-/);
   await page.getByLabel("Intended recipient").fill("Shop support");
   await page.getByRole("button", { name: "Save draft" }).click();
   await page.getByText("Review saved version 1").press("Enter");
@@ -265,6 +274,7 @@ test("review, approve and download an evidence-linked recovery draft", async ({
   await page.getByRole("button", { name: "Download approved claim" }).click();
   expect((await download).suggestedFilename()).toBe("aftercare-claim.txt");
   await page.getByRole("link", { name: "Agent activity" }).click();
+  await expect(page).toHaveURL(/\/activity$/);
   await expect(page.getByText(/exported not sent/)).toBeVisible();
 });
 

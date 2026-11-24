@@ -331,11 +331,27 @@ test("expired recovery lease resumes and an approved export is single-use", asyn
       body: "Please review this delivery.",
     })
   ).json().data;
-  const token = (await post(`${base}/approve`, draft)).json().data;
+  const old = (await post(`${base}/approve`, draft)).json().data;
+  const payload = {
+    recipient: "Shop",
+    body: "Review PRIVATE and PRIVATE.",
+    redact: "PRIVATE",
+  };
   assert.equal(
-    (await post(`${base}/export`, token)).json().data.status,
-    "exported_not_sent",
+    (
+      await post(`${base}/draft`, {
+        ...payload,
+        attachments: ["018fc9d4-f802-7b60-bf64-847170698042"],
+      })
+    ).statusCode,
+    409,
   );
+  const revised = (await post(`${base}/draft`, payload)).json().data;
+  assert.equal((await post(`${base}/export`, old)).statusCode, 409);
+  const token = (await post(`${base}/approve`, revised)).json().data;
+  const exported = (await post(`${base}/export`, token)).json().data;
+  assert.equal(exported.body, "Review [redacted] and [redacted].");
+  assert.equal(exported.status, "exported_not_sent");
   assert.equal((await post(`${base}/export`, token)).statusCode, 409);
   assert.equal(
     db.prepare("SELECT count(*) AS n FROM recovery_exports").get()?.n,
