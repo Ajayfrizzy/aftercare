@@ -213,3 +213,6 @@ section {
   margin: 1rem 0;
   font-family: Georgia, serif;
 }
+.vault nav {
+  flex-wrap: wrap;
+}
