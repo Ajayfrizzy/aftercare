@@ -407,3 +407,21 @@ section {
     grid-column: 1 / -1;
   }
 }
+.landing-benefits {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+}
+.tour-actions {
+  display: flex;
+  gap: 1rem;
+}
+.tour-actions button {
+  font: inherit;
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  background: var(--canvas);
+  color: var(--ink);
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+}

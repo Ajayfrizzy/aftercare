@@ -1,3 +1,4 @@
+import Tour from "./tour";
 import { headers } from "next/headers";
 import { overview } from "@aftercare/contracts";
 import Link from "next/link";
@@ -23,6 +24,7 @@ export default async function Journal() {
   return (
     <>
       <h1>{data.title}</h1>
+      <Tour />
       <section>
         <h2>Agent activity</h2>
         <p>No checks recorded. Monitoring is awaiting service verification.</p>
