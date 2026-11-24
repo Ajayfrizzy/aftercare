@@ -454,7 +454,7 @@ export default function Vault() {
                     </select>
                   </label>
                   <label>
-                    Protection type
+                    Filter by protection category
                     <select
                       value={kindFilter}
                       onChange={(e) => setKindFilter(e.target.value)}
