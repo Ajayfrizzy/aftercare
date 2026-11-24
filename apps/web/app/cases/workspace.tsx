@@ -60,20 +60,27 @@ export function CaseWorkspace({
         throw Error(
           "Action unavailable. Refresh and review the current draft.",
         );
-      const result = (await r.json()).data;
+      const format = (data as { format?: string }).format;
+      const binary =
+        name === "export" && (format === "pdf" || format === "eml");
+      const result = binary ? {} : (await r.json()).data;
       if (name === "export") {
         const url = URL.createObjectURL(
-          result.attachments?.length
-            ? new Blob([JSON.stringify(result)], { type: "application/json" })
-            : new Blob([`Recipient: ${result.recipient}\n\n${result.body}`], {
-                type: "text/plain",
-              }),
+          binary
+            ? await r.blob()
+            : result.attachments?.length
+              ? new Blob([JSON.stringify(result)], { type: "application/json" })
+              : new Blob([`Recipient: ${result.recipient}\n\n${result.body}`], {
+                  type: "text/plain",
+                }),
         );
         const link = document.createElement("a");
         link.href = url;
-        link.download = result.attachments?.length
-          ? "aftercare-claim.json"
-          : "aftercare-claim.txt";
+        link.download = binary
+          ? `aftercare-claim.${format}`
+          : result.attachments?.length
+            ? "aftercare-claim.json"
+            : "aftercare-claim.txt";
         link.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
@@ -266,6 +273,26 @@ export function CaseWorkspace({
                 >
                   Download approved claim
                 </button>
+                {(["pdf", "eml"] as const).map((format) => (
+                  <button
+                    type="button"
+                    key={format}
+                    onClick={() =>
+                      action(c, "export", {
+                        approvalId: approvals[c.id],
+                        format,
+                      })
+                    }
+                  >
+                    {format === "pdf"
+                      ? "Download PDF package"
+                      : "Download email draft"}
+                  </button>
+                ))}
+                <p>
+                  Choose one download per approval. Open the email draft in your
+                  mail app to review it before sending.
+                </p>
                 <button
                   type="button"
                   onClick={() =>

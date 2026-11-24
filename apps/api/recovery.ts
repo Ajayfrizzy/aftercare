@@ -1,3 +1,4 @@
+import { renderClaim } from "./claim-file.ts";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID, createHash } from "node:crypto";
@@ -208,6 +209,7 @@ export async function recoveryRoutes(
           .get(id);
         let state = "";
         let data: unknown;
+        let download: { bytes: Buffer; format: "pdf" | "eml" } | undefined;
         if (action === "draft") {
           const input = recoveryDraft.parse(req.body);
           const allowed = receipts(id, String(owner));
@@ -312,6 +314,31 @@ export async function recoveryRoutes(
               attachments.push({ ...file, base64: bytes.toString("base64") });
             }
           }
+          const format = (req.body as { format?: unknown }).format;
+          let rendered: Buffer | undefined;
+          if (action === "export" && format !== undefined) {
+            if (format !== "pdf" && format !== "eml") throw Error("STALE");
+            const binding = db
+              .prepare(
+                "SELECT 1 FROM recovery_approvals WHERE id=? AND case_id=? AND version=? AND content_hash=? AND consumed_at IS NULL AND revoked_at IS NULL AND expires_at>?",
+              )
+              .get(token, id, draft.version, draft.content_hash, now);
+            if (!binding) throw Error("STALE");
+            db.exec("COMMIT");
+            try {
+              rendered = await renderClaim(format, {
+                recipient: String(draft.recipient),
+                body: preview(String(draft.body), String(draft.redact)),
+                version: Number(draft.version),
+                attachments,
+              });
+            } finally {
+              db.exec("BEGIN IMMEDIATE");
+            }
+            if (sessionOwner(db, req) !== owner) throw Error("STALE");
+          }
+          if (rendered && (format === "pdf" || format === "eml"))
+            download = { bytes: rendered, format };
           const field = action === "export" ? "consumed_at" : "revoked_at";
           if (
             !db
@@ -320,8 +347,14 @@ export async function recoveryRoutes(
                   field +
                   "=? WHERE id=? AND case_id=? AND version=? AND content_hash=? AND expires_at>? AND consumed_at IS NULL AND revoked_at IS NULL",
               )
-              .run(now, token, id, draft.version, draft.content_hash, now)
-              .changes
+              .run(
+                now,
+                token,
+                id,
+                draft.version,
+                draft.content_hash,
+                new Date().toISOString(),
+              ).changes
           )
             throw Error("STALE");
           state =
@@ -352,6 +385,16 @@ export async function recoveryRoutes(
           "INSERT INTO audit_events(user_id,action,subject) VALUES(?,?,?)",
         ).run(owner, `recovery_${state}`, id);
         db.exec("COMMIT");
+        if (download)
+          return reply
+            .header(
+              "content-disposition",
+              `attachment; filename="aftercare-claim.${download.format}"`,
+            )
+            .type(
+              download.format === "pdf" ? "application/pdf" : "message/rfc822",
+            )
+            .send(download.bytes);
         return { data };
       } catch (e) {
         db.exec("ROLLBACK");

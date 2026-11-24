@@ -446,6 +446,51 @@ test("expired recovery lease resumes and an approved export is single-use", asyn
   const later = now + 8 * 86400000;
   assert.equal(notifyDue(db, later), 1);
   assert.equal(notifyDue(db, later), 0);
+  for (const format of ["pdf", "eml"]) {
+    const permit = (await post(`${base}/approve`, revised)).json().data;
+    const response = await post(`${base}/export`, { ...permit, format });
+    assert.equal(response.statusCode, 200);
+    assert.equal((await post(`${base}/export`, permit)).statusCode, 409);
+    if (format === "pdf") {
+      const {
+        PDFDocument,
+        PDFDict,
+        PDFName,
+        PDFArray,
+        PDFRawStream,
+        decodePDFRawStream,
+      } = await import("pdf-lib");
+      const pdf = await PDFDocument.load(response.rawPayload);
+      assert.ok(pdf.getPageCount() > 0);
+      const names = pdf.catalog
+        .lookup(PDFName.of("Names"), PDFDict)
+        .lookup(PDFName.of("EmbeddedFiles"), PDFDict)
+        .lookup(PDFName.of("Names"), PDFArray);
+      const stream = names
+        .lookup(1, PDFDict)
+        .lookup(PDFName.of("EF"), PDFDict)
+        .lookup(PDFName.of("F"));
+      assert.ok(stream instanceof PDFRawStream);
+      assert.equal(
+        Buffer.from(decodePDFRawStream(stream).decode()).toString(),
+        original,
+      );
+    } else {
+      const { execFileSync } = await import("node:child_process");
+      const parsed = JSON.parse(
+        execFileSync(
+          "python3",
+          [
+            "-c",
+            "import email,email.policy,sys,json; m=email.message_from_bytes(sys.stdin.buffer.read(),policy=email.policy.default); print(json.dumps([m.get_body().get_content(),next(m.iter_attachments()).get_payload(decode=True).decode()]))",
+          ],
+          { input: response.rawPayload, encoding: "utf8" },
+        ),
+      );
+      assert.ok(parsed[0].includes(exported.body));
+      assert.equal(parsed[1], original);
+    }
+  }
   db.prepare("UPDATE protection_observations SET record='{}' WHERE id=?").run(
     obs.json().data.id,
   );

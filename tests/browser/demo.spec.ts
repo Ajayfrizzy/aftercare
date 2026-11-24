@@ -33,7 +33,7 @@ for (const width of [360, 390, 768, 1024, 1440]) {
     ).toBe(width);
     if ([390, 1440].includes(width))
       await page.screenshot({
-        path: `docs/evidence/screens/landing-${width}.png`,
+        path: `test-results/design/landing-${width}.png`,
       });
     await page.keyboard.press("Enter");
     await expect(
@@ -44,8 +44,25 @@ for (const width of [360, 390, 768, 1024, 1440]) {
     ).toBe(width);
     if ([390, 1440].includes(width))
       await page.screenshot({
-        path: `docs/evidence/screens/journal-${width}.png`,
+        path: `test-results/design/journal-${width}.png`,
       });
+    if ([390, 768, 1440].includes(width)) {
+      for (const colorScheme of ["dark", "light"] as const) {
+        await page.emulateMedia({ colorScheme });
+        await page.getByRole("button", { name: "Next step" }).first().focus();
+        await expect(
+          page.getByRole("button", { name: "Next step" }).first(),
+        ).toBeFocused();
+        expect(
+          await page.evaluate(() => document.documentElement.scrollWidth),
+        ).toBe(width);
+        await page.goto("/");
+        expect(
+          await page.evaluate(() => document.documentElement.scrollWidth),
+        ).toBe(width);
+        await page.getByRole("link", { name: "Open private demo" }).click();
+      }
+    }
     await context.close();
   });
 }

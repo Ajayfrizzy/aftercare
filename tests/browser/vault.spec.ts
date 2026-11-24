@@ -46,7 +46,7 @@ for (const width of [390, 1440]) {
     await page.getByLabel("Price in minor units").fill("1400");
     await reviewLayouts(page, "review", width);
     await page.screenshot({
-      path: `docs/evidence/screens/m1-review-${width}.png`,
+      path: `test-results/design/m1-review-${width}.png`,
       fullPage: true,
     });
     await page.getByRole("button", { name: "Save purchase" }).click();
@@ -55,7 +55,7 @@ for (const width of [390, 1440]) {
     ).toBeVisible();
     await reviewLayouts(page, "vault", width);
     await page.screenshot({
-      path: `docs/evidence/screens/m1-vault-${width}.png`,
+      path: `test-results/design/m1-vault-${width}.png`,
       fullPage: true,
     });
     const [{ id }] = await page.evaluate(
@@ -120,7 +120,7 @@ for (const width of [390, 1440]) {
     await page.getByLabel("Price in minor units").nth(1).fill("200");
     await reviewLayouts(page, "editor", width);
     await page.screenshot({
-      path: `docs/evidence/screens/m1-editor-${width}.png`,
+      path: `test-results/design/m1-editor-${width}.png`,
       fullPage: true,
     });
     await page.getByRole("button", { name: "Save purchase" }).click();
@@ -136,7 +136,7 @@ for (const width of [390, 1440]) {
     ).toBe(width);
     await reviewLayouts(page, "detail", width);
     await page.screenshot({
-      path: `docs/evidence/screens/m1-detail-${width}.png`,
+      path: `test-results/design/m1-detail-${width}.png`,
       fullPage: true,
     });
   });
@@ -204,7 +204,7 @@ test("protection form records and reads a delivery commitment", async ({
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBe(width);
     await page.screenshot({
-      path: `docs/evidence/screens/m2-protection-${width}.png`,
+      path: `test-results/design/m2-protection-${width}.png`,
       fullPage: true,
     });
   }
@@ -264,9 +264,11 @@ test("review, approve and download an evidence-linked recovery draft", async ({
   await page.getByText("Purchase protection", { exact: true }).click();
   await page.getByRole("link", { name: "Open recovery case" }).click();
   await expect(page).toHaveURL(/\/cases#case-/);
+  await reviewLayouts(page, "case", 1440);
   await page.getByLabel("Intended recipient").fill("Shop support");
   await page.getByRole("button", { name: "Save draft" }).click();
   await page.getByText("Review saved version 1").press("Enter");
+  await reviewLayouts(page, "approval", 1440);
   await page
     .getByRole("button", { name: "Approve this version for download" })
     .click();
@@ -276,6 +278,12 @@ test("review, approve and download an evidence-linked recovery draft", async ({
   await page.getByRole("link", { name: "Agent activity" }).click();
   await expect(page).toHaveURL(/\/activity$/);
   await expect(page.getByText(/exported not sent/)).toBeVisible();
+  await reviewLayouts(page, "activity", 1440);
+  for (const route of ["overview", "protection", "settings", "approvals"]) {
+    await page.goto("/" + route);
+    await expect(page.locator("h1")).toBeVisible();
+    await reviewLayouts(page, route, 1440);
+  }
 });
 
 test("privacy export and confirmed account deletion", async ({ page }) => {
@@ -424,4 +432,42 @@ test("journal search and notifications open the owned purchase and retain read s
   await view.click();
   await page.getByRole("button", { name: "Mark as unread" }).click();
   await expect(page.getByText("Unread", { exact: true })).toBeVisible();
+});
+
+test("delayed search cannot replace a newer failure or recovery", async ({
+  page,
+}) => {
+  await page.goto("/vault");
+  await page
+    .getByText("Search and notifications", { exact: true })
+    .press("Enter");
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/api/v1/cases/find?**", async (route) => {
+    const q = new URL(route.request().url()).searchParams.get("q");
+    if (q === "slow") await gate;
+    await route.fulfill({
+      status: q === "failure" ? 503 : 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: q === "slow" ? [{ label: "Old result", href: "/vault" }] : [],
+      }),
+    });
+  });
+  const input = page.getByLabel("Search your journal");
+  await input.fill("slow");
+  await input.press("Enter");
+  await expect(page.getByText("Loading…", { exact: true })).toBeVisible();
+  await input.fill("failure");
+  await input.press("Enter");
+  await expect(page.getByText("Search unavailable.")).toBeVisible();
+  const completed = page.waitForResponse((r) => r.url().includes("q=slow"));
+  release();
+  await completed;
+  await input.fill("new");
+  await input.press("Enter");
+  await expect(page.getByText("No matching records.")).toBeVisible();
+  await expect(page.getByText("Old result")).toHaveCount(0);
 });

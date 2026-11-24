@@ -380,8 +380,9 @@ export default function Vault() {
                   ["notes", "Notes", selected?.notes],
                 ].map(([key, label, value]) => (
                   <label key={key}>
-                    {label}
+                    <span id={`purchase-field-${key}`}>{label}</span>
                     <input
+                      aria-labelledby={`purchase-field-${key}`}
                       aria-describedby={artifact ? "review-" + key : undefined}
                       name={key}
                       type={key === "date" ? "date" : "text"}

@@ -6,7 +6,8 @@
     "@aftercare/contracts": "workspace:*",
     "@aftercare/db": "workspace:*",
     "@fastify/multipart": "9.3.0",
-    "fastify": "5.8.5"
+    "fastify": "5.8.5",
+    "pdfmake": "0.2.20"
   },
   "scripts": {
     "start": "node server.ts"
