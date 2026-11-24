@@ -62,39 +62,57 @@ export async function recallNotices(
   model: string,
   transport: typeof fetch,
 ) {
-  const url = new URL("https://www.saferproducts.gov/RestWebServices/Recall");
-  url.search = new URLSearchParams({
-    format: "json",
-    ProductModel: model,
-  }).toString();
-  const res = await transport(url, {
-    redirect: "error",
-    signal: AbortSignal.timeout(10000),
-  });
-  if (!res.ok) throw Error("Recall service unavailable");
-  const records = await res.json();
-  const norm = (s: string) => s.trim().toLowerCase();
-  return records
-    .filter(
-      (r: {
-        URL: string;
-        Products: { Model: string }[];
-        Manufacturers: { Name: string }[];
-      }) => {
-        const u = new URL(r.URL);
-        return (
-          u.protocol === "https:" &&
-          u.hostname === "www.cpsc.gov" &&
-          u.pathname.toLowerCase().startsWith("/recalls/") &&
-          r.Products.some((p) => p.Model && norm(p.Model) === norm(model)) &&
-          r.Manufacturers.some((m) => m.Name && norm(m.Name) === norm(brand))
-        );
-      },
-    )
-    .map((r: { URL: string; RecallDate: string; Title: string }) => ({
-      source: r.URL,
-      publishedAt: r.RecallDate,
-      title: r.Title,
-      retrievedAt: new Date().toISOString(),
-    }));
+  type Notice = {
+    URL: string;
+    Title: string;
+    RecallDate: string;
+    Products: { Model?: string; Name?: string }[];
+    Manufacturers: { Name?: string }[];
+  };
+  const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+  async function lookup(field: string, value: string): Promise<Notice[]> {
+    const url = new URL("https://www.saferproducts.gov/RestWebServices/Recall");
+    url.search = new URLSearchParams({
+      format: "json",
+      [field]: value,
+    }).toString();
+    const res = await transport(url, {
+      redirect: "error",
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) throw Error("Recall service unavailable");
+    const rows: Notice[] = await res.json();
+    return rows.filter((r) => {
+      const source = URL.canParse(r.URL) ? new URL(r.URL) : null;
+      return (
+        source?.origin === "https://www.cpsc.gov" &&
+        source.pathname.toLowerCase().startsWith("/recalls/")
+      );
+    });
+  }
+  const exact = (await lookup("ProductModel", model)).filter(
+    (r) =>
+      r.Products?.some((p) => norm(p.Model ?? "") === norm(model)) &&
+      r.Manufacturers?.some((m) => norm(m.Name ?? "") === norm(brand)),
+  );
+  const product = norm(model).startsWith(norm(brand) + " ")
+    ? norm(model)
+    : norm(brand + " " + model);
+  const rows = exact.length
+    ? exact
+    : (await lookup("ProductName", product)).filter((r) =>
+        r.Products?.some((p) => {
+          const name = norm(p.Name ?? "");
+          return name === product || name.startsWith(product + " ");
+        }),
+      );
+  return rows.map((r) => ({
+    source: r.URL,
+    publishedAt: r.RecallDate,
+    title: r.Title,
+    retrievedAt: new Date().toISOString(),
+    identity: exact.length
+      ? "Structured manufacturer and model match. Check the notice for unit-specific restrictions."
+      : "Product-name candidate. Confirm the exact model, serial number and affected range in the official notice.",
+  }));
 }

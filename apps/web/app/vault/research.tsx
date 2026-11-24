@@ -5,7 +5,13 @@ export function Research({ purchaseId }: { purchaseId: string }) {
     [status, setStatus] = useState(""),
     [busy, setBusy] = useState(false);
   const [results, setResults] = useState<
-    { source: string; text?: string; title?: string; retrievedAt: string }[]
+    {
+      source: string;
+      text?: string;
+      title?: string;
+      identity?: string;
+      retrievedAt: string;
+    }[]
   >([]);
   return (
     <details>
@@ -101,6 +107,7 @@ export function Research({ purchaseId }: { purchaseId: string }) {
               External source
             </a>
             <p>{r.title ?? r.text}</p>
+            {r.identity && <p>{r.identity}</p>}
             <time>{r.retrievedAt}</time>
           </article>
         ))}
