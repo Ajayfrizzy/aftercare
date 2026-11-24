@@ -48,6 +48,9 @@ export default function ProtectionCenter() {
       <Link href="/vault">Purchase vault</Link>
       <h1>Protection center</h1>
       <output>{status}</output>
+      {status.startsWith("Sign in") && (
+        <Link href="/vault">Sign in or create an account</Link>
+      )}
       {status.startsWith("Could not") && (
         <button type="button" onClick={load}>
           Try again

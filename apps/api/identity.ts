@@ -15,12 +15,17 @@ const derive = promisify(scrypt);
 const lifetime = 7 * 24 * 3600;
 const digest = (token: string) =>
   createHash("sha256").update(token).digest("hex");
+const sessionCookie =
+  process.env.APP_BASE_URL === "http://127.0.0.1:3120"
+    ? "__Host-aftercare-m2"
+    : "__Host-aftercare";
 function tokenOf(req: FastifyRequest) {
-  return (
-    req.headers.cookie?.match(
-      /(?:^|;\s*)__Host-aftercare=([a-f0-9]{64})(?:;|$)/,
-    )?.[1] ?? ""
-  );
+  const value = req.headers.cookie
+    ?.split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(sessionCookie + "="))
+    ?.slice(sessionCookie.length + 1);
+  return value && /^[a-f0-9]{64}$/.test(value) ? value : "";
 }
 export function identityRoutes(app: FastifyInstance, db: DatabaseSync) {
   const origin = process.env.APP_BASE_URL ?? "http://localhost:3000";
@@ -135,7 +140,8 @@ export function identityRoutes(app: FastifyInstance, db: DatabaseSync) {
 }
 function cookie(token: string, age: number) {
   return (
-    "__Host-aftercare=" +
+    sessionCookie +
+    "=" +
     token +
     "; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=" +
     age
