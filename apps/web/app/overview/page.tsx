@@ -4,8 +4,9 @@ import Link from "next/link";
 type Attention = {
   id: string;
   purchaseId: string;
-  potentialRefund?: { currency: string; minor: string } | null;
+  potentialRefund?: { currency: string; minor: string; dueAt: string } | null;
   merchant: string;
+  source: string;
   state: string;
   reason: string;
   nextCheckAt: string | null;
@@ -98,6 +99,17 @@ export default function Overview() {
                   <p key={e.id}>
                     {e.merchant} · {e.potentialRefund?.minor} minor units (
                     {e.potentialRefund?.currency}) · receipt unconfirmed
+                    {" · "}Promised by{" "}
+                    <time dateTime={e.potentialRefund?.dueAt}>
+                      {e.potentialRefund?.dueAt}
+                    </time>
+                    {" · "}
+                    <a
+                      href={e.source}
+                      aria-label={`Refund source for ${e.merchant}`}
+                    >
+                      View source
+                    </a>
                   </p>
                 ))
             ) : (

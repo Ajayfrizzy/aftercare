@@ -95,7 +95,11 @@ export async function protectionRoutes(
           source: evidence.source,
           potentialRefund:
             evidence.kind === "refund" && !evidence.received
-              ? { currency: evidence.currency, minor: evidence.amountMinor }
+              ? {
+                  currency: evidence.currency,
+                  minor: evidence.amountMinor,
+                  dueAt: evidence.dueAt,
+                }
               : null,
           region: evidence.region,
           observedAt: evidence.observedAt,

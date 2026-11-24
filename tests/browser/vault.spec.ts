@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
+import { test } from "./api-fixture.ts";
+import { expect, type Page } from "@playwright/test";
 async function reviewLayouts(page: Page, screen: string, original: number) {
   if (original !== 1440) return;
   for (const width of [390, 768, 1440]) {
@@ -470,4 +471,76 @@ test("delayed search cannot replace a newer failure or recovery", async ({
   await input.press("Enter");
   await expect(page.getByText("No matching records.")).toBeVisible();
   await expect(page.getByText("Old result")).toHaveCount(0);
+});
+
+test("outstanding refund commitment across sizes and themes", async ({
+  page,
+}) => {
+  await page.goto("/vault");
+  await page.evaluate(async () => {
+    async function post(path: string, payload: unknown) {
+      const r = await fetch("/api/v1/" + path, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!r.ok) throw Error(path + " " + r.status);
+      return (await r.json()).data;
+    }
+    await post("auth/register", {
+      email: "refund@example.org",
+      password: "synthetic refund password",
+    });
+    const p = await post("purchases", {
+      merchant: "Paper Shop",
+      date: "2026-11-01",
+      currency: "EUR",
+      items: [{ name: "Journal", minor: "1245" }],
+    });
+    await post(`purchases/${p.id}/protection`, {
+      kind: "refund",
+      merchant: "Paper Shop",
+      region: "IE",
+      currency: "EUR",
+      amountMinor: "1245",
+      dueAt: "2026-11-20T16:00:00Z",
+      observedAt: "2026-11-10T12:00:00Z",
+      source: "https://example.org/promise",
+      excerpt: "Refund promised for journal",
+      received: false,
+    });
+  });
+  await page.goto("/overview");
+  for (const width of [390, 768, 1440])
+    for (const colorScheme of ["light", "dark"] as const) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.emulateMedia({ colorScheme });
+      const source = page.getByRole("link", {
+        name: "Refund source for Paper Shop",
+      });
+      await expect(source).toHaveAttribute(
+        "href",
+        "https://example.org/promise",
+      );
+      const row = source.locator("..");
+      await expect(row).toContainText(
+        "1245 minor units (EUR) · receipt unconfirmed",
+      );
+      await expect(row.locator("time")).toHaveAttribute(
+        "datetime",
+        "2026-11-20T16:00:00Z",
+      );
+      await source.focus();
+      await page.keyboard.press("Shift+Tab");
+      await page.keyboard.press("Tab");
+      await expect(source).toBeFocused();
+      await expect(source).toHaveCSS("outline-style", "solid");
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBe(width);
+      await page.screenshot({
+        path: `test-results/design/refund-${width}-${colorScheme}.png`,
+        fullPage: true,
+      });
+    }
 });

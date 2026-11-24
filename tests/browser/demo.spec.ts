@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { test } from "./api-fixture.ts";
+import { expect } from "@playwright/test";
 
 for (const width of [360, 390, 768, 1024, 1440]) {
   test(`landing and private journal at ${width}`, async ({
