@@ -1,5 +1,6 @@
 # Milestones and six-day execution gates
 
+Status on 2026-11-24: M0-A accepted, M0-B open, M1 formally accepted at 7e88910, M2 authorized for local development.
 **Hacksgiving begins Monday Nov 23; deadline Sunday Nov 29 before midnight PST.** Target implementation complete by Saturday Nov 28 and reserve Sunday as a submission buffer. Milestones are vertical slices, not permission to omit agreed features.
 
 ## M0 — Nov 23: freeze and verify architecture/infrastructure
