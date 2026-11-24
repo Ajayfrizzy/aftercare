@@ -7,7 +7,10 @@
     "@aftercare/db": "workspace:*",
     "@fastify/multipart": "9.3.0",
     "fastify": "5.8.5",
-    "pdfmake": "0.2.20"
+    "pdfmake": "0.2.20",
+    "@aftercare/agent": "workspace:*",
+    "@aftercare/domain": "workspace:*",
+    "@aftercare/connectors": "workspace:*"
   },
   "scripts": {
     "start": "node server.ts"

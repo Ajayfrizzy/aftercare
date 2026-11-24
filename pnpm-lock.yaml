@@ -32,12 +32,21 @@ importers:
 
   apps/api:
     dependencies:
+      '@aftercare/agent':
+        specifier: workspace:*
+        version: link:../../packages/agent
+      '@aftercare/connectors':
+        specifier: workspace:*
+        version: link:../../packages/connectors
       '@aftercare/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
       '@aftercare/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@aftercare/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@fastify/multipart':
         specifier: 9.3.0
         version: 9.3.0
