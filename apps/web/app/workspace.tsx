@@ -1,4 +1,5 @@
 "use client";
+import Find from "./find";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -39,6 +40,7 @@ export default function Workspace({ children }: { children: ReactNode }) {
         </nav>
       )}
       <main id="content" tabIndex={-1}>
+        {!publicPage && <Find key={path} />}
         {children}
       </main>
     </div>

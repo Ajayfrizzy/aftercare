@@ -178,3 +178,7 @@ export const monitoringPreferences = z.strictObject({
 export const deleteAccount = credentials.extend({
   confirmation: z.literal("DELETE"),
 });
+export const caseUpdate = z.strictObject({
+  status: z.enum(["awaiting_owner", "awaiting_merchant", "resolved_by_owner"]),
+  note: z.string().trim().min(1).max(2000),
+});

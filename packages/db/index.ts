@@ -26,6 +26,7 @@ export function openDatabase(path: string) {
       "recovery-retries.sql",
       "monitoring.sql",
       "privacy.sql",
+      "case-updates.sql",
     ];
     if (typeof version !== "number" || version > migrations.length + 1)
       throw new Error("Unsupported database version");

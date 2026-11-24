@@ -6,6 +6,8 @@ type Case = {
   state: string;
   reason: string;
   evidence: { merchant: string; source: string; excerpt: string };
+  history: { action: string; created_at: string }[];
+  notes: { status: string; note: string; created_at: string }[];
   suggestion: string;
   activeApproval: { id: string; expires_at: string } | null;
   draft: {
@@ -93,9 +95,53 @@ export function CaseWorkspace({
       {cases
         .filter((c) => !approvalsOnly || c.draft)
         .map((c) => (
-          <section key={c.id}>
+          <section key={c.id} id={"case-" + c.id}>
             <h2>{c.evidence.merchant}</h2>
             <p>{c.reason}</p>
+            <p>Case status · {c.state.replaceAll("_", " ")}</p>
+            {!approvalsOnly && (
+              <details>
+                <summary>History and corrections</summary>
+                {c.history.map((h, i) => (
+                  <p key={JSON.stringify([i, h])}>
+                    {h.action.replaceAll("_", " ")} · {h.created_at} UTC
+                  </p>
+                ))}
+                {c.notes.map((n, i) => (
+                  <blockquote key={JSON.stringify([i, n])}>
+                    {n.note} · {n.status.replaceAll("_", " ")}
+                  </blockquote>
+                ))}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void action(
+                      c,
+                      "update",
+                      Object.fromEntries(new FormData(e.currentTarget)),
+                    );
+                  }}
+                >
+                  <label>
+                    Recovery status
+                    <select name="status">
+                      <option value="awaiting_owner">Awaiting owner</option>
+                      <option value="awaiting_merchant">
+                        Awaiting merchant
+                      </option>
+                      <option value="resolved_by_owner">
+                        Resolved by owner
+                      </option>
+                    </select>
+                  </label>
+                  <label>
+                    Correction or confirmation
+                    <textarea name="note" maxLength={2000} required />
+                  </label>
+                  <button type="submit">Record update</button>
+                </form>
+              </details>
+            )}
             <blockquote>{c.evidence.excerpt}</blockquote>
             <a href={c.evidence.source} rel="noreferrer" target="_blank">
               Evidence source

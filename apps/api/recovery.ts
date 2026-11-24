@@ -6,6 +6,7 @@ import {
   approvalRequest,
   monitoringPreferences,
   recoveryDraft,
+  caseUpdate,
 } from "@aftercare/contracts";
 import { sessionOwner } from "./identity.ts";
 export async function recoveryRoutes(
@@ -53,6 +54,38 @@ export async function recoveryRoutes(
       };
     },
   });
+  app.get<{ Querystring: { q?: string; mode?: string } }>(
+    "/find",
+    async (req, reply) => {
+      const owner = sessionOwner(db, req),
+        query = req.query.q;
+      if (req.query.mode === "reminders") {
+        const rows = db
+          .prepare(
+            "SELECT a.case_id,e.notified_at,o.record FROM recovery_exports e JOIN recovery_approvals a ON a.id=e.approval_id JOIN protection_observations o ON o.id=a.case_id WHERE o.user_id=? AND e.notified_at IS NOT NULL ORDER BY e.notified_at DESC LIMIT 50",
+          )
+          .all(owner);
+        return {
+          data: rows.map((r) => ({
+            label:
+              "Follow up with " +
+              JSON.parse(String(r.record)).merchant +
+              " · " +
+              r.notified_at,
+            href: "/cases#case-" + r.case_id,
+          })),
+        };
+      }
+      if (typeof query !== "string" || !query.trim() || query.length > 120)
+        return reply.code(422).send({ error: { code: "INVALID_QUERY" } });
+      const rows = db
+        .prepare(`SELECT 'Purchase · '||json_extract(record,'$.merchant') AS label,'/vault#purchase-'||id AS href FROM purchases WHERE user_id=? AND instr(lower(record),lower(?))>0
+    UNION ALL SELECT 'Protection · '||json_extract(record,'$.kind')||' · '||json_extract(record,'$.merchant'),'/protection#observation-'||id FROM protection_observations WHERE user_id=? AND instr(lower(record),lower(?))>0
+    UNION ALL SELECT 'Case · '||c.reason,'/cases#case-'||c.observation_id FROM recovery_cases c JOIN protection_observations o ON o.id=c.observation_id WHERE o.user_id=? AND instr(lower(o.record||c.reason),lower(?))>0 LIMIT 100`)
+        .all(owner, query, owner, query, owner, query);
+      return { data: rows };
+    },
+  );
   app.get("/activity", async (req) => {
     const owner = sessionOwner(db, req);
     const events = db
@@ -85,6 +118,16 @@ export async function recoveryRoutes(
           .all(row.observation_id);
         return {
           id: row.observation_id,
+          history: db
+            .prepare(
+              "SELECT action,created_at FROM audit_events WHERE subject=? AND user_id=? ORDER BY sequence",
+            )
+            .all(row.observation_id, sessionOwner(db, req)),
+          notes: db
+            .prepare(
+              "SELECT status,note,created_at FROM case_updates WHERE case_id=? ORDER BY id",
+            )
+            .all(row.observation_id),
           state: row.state,
           reason: row.reason,
           evidence,
@@ -158,6 +201,16 @@ export async function recoveryRoutes(
           ).run(now, id);
           state = "awaiting_approval";
           data = { version, contentHash: hash };
+        } else if (action === "update") {
+          const input = caseUpdate.parse(req.body);
+          db.prepare(
+            "INSERT INTO case_updates(case_id,status,note,created_at) VALUES(?,?,?,?)",
+          ).run(id, input.status, input.note, now);
+          db.prepare(
+            "UPDATE recovery_approvals SET revoked_at=? WHERE case_id=? AND consumed_at IS NULL AND revoked_at IS NULL",
+          ).run(now, id);
+          state = input.status;
+          data = { status: state };
         } else if (action === "approve") {
           const input = approvalRequest.parse(req.body);
           if (

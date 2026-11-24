@@ -95,7 +95,7 @@ export default function ProtectionCenter() {
               {entries
                 .filter((e) => e.state === state && (!kind || e.kind === kind))
                 .map((e) => (
-                  <article key={e.id}>
+                  <article id={"observation-" + e.id} key={e.id}>
                     <h3>
                       {e.merchant} · {e.kind}
                     </h3>
