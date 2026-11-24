@@ -32,6 +32,7 @@ export async function researchPolicy(
       (u: URL) =>
         u.protocol === "https:" &&
         u.hostname === merchantDomain &&
+        !/(?:reseller|wholesale|distributor)/i.test(u.pathname) &&
         !u.username &&
         !u.password,
     )
@@ -41,7 +42,12 @@ export async function researchPolicy(
   return extracts.results
     .filter(
       (r: { url: string; raw_content: string }) =>
-        urls.includes(r.url) && typeof r.raw_content === "string",
+        urls.includes(r.url) &&
+        typeof r.raw_content === "string" &&
+        !/reseller agreement|wholesale agreement|distributor agreement/i.test(
+          r.raw_content,
+        ) &&
+        /return|refund|warranty|price adjustment/i.test(r.raw_content),
     )
     .map((r: { url: string; raw_content: string }) => ({
       source: r.url,

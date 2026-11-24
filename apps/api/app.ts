@@ -37,7 +37,23 @@ export function createApp(path: string, secret: string) {
   app.addHook("onClose", async () => clearInterval(timer));
   identityRoutes(app, db, storageRoot);
   app.register(recoveryRoutes, { prefix: "/api/v1/cases", db });
-  app.register(protectionRoutes, { prefix: "/api/v1", db });
+  const configuredGateway = process.env.AFTERCARE_TAVILY_GATEWAY;
+  const gateway = configuredGateway ? new URL(configuredGateway) : undefined;
+  if (
+    gateway &&
+    (gateway.origin !== "https://api.sprites.dev" ||
+      !/^\/v1\/gateway\/tavily\/[A-Za-z0-9_-]+\/?$/.test(gateway.pathname) ||
+      gateway.username ||
+      gateway.password ||
+      gateway.search ||
+      gateway.hash)
+  )
+    throw Error("Invalid Sprite Tavily gateway");
+  app.register(protectionRoutes, {
+    prefix: "/api/v1",
+    db,
+    providers: gateway ? { gateway, transport: fetch } : undefined,
+  });
   app.register(receiptRoutes, { prefix: "/api/v1", db });
   app.register(vaultRoutes, { prefix: "/api/v1/purchases", db });
   app.addHook("onClose", async () => db.close());

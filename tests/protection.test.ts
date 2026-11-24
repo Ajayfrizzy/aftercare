@@ -83,7 +83,7 @@ test("connector contract uses granted gateway, primary-domain extract and no cre
         results:
           paths.length === 1
             ? [{ url: basic.source }, { url: "https://other.example/p" }]
-            : [{ url: basic.source, raw_content: "Sample policy" }],
+            : [{ url: basic.source, raw_content: "Sample return policy" }],
       });
     },
   );
