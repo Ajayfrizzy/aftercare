@@ -307,3 +307,62 @@ test("privacy export and confirmed account deletion", async ({ page }) => {
     await page.evaluate(async () => (await fetch("/api/v1/me")).status),
   ).toBe(401);
 });
+
+test("receipt queue preserves confirmations through failures, duplicates and cancellation", async ({
+  page,
+}) => {
+  await page.goto("/vault");
+  await page.getByRole("button", { name: "Create an account" }).click();
+  await page.getByLabel("Email").fill("queue@example.org");
+  await page.getByLabel("Password").fill("synthetic queue passphrase");
+  await page
+    .getByRole("button", { name: "Create account", exact: true })
+    .click();
+  const receipt = (name: string) => ({
+    name,
+    mimeType: "text/plain",
+    buffer: Buffer.from("Receipt from " + name),
+  });
+  const first = receipt("first.txt");
+  const files = [
+    first,
+    {
+      name: "bad.exe",
+      mimeType: "application/octet-stream",
+      buffer: Buffer.from([0, 1, 2]),
+    },
+    first,
+    receipt("second.txt"),
+    receipt("cancel.txt"),
+  ];
+  await page.getByLabel("Import receipt").setInputFiles(files);
+  async function confirm(merchant: string) {
+    await page.locator('input[name="merchant"]').fill(merchant);
+    await page.getByLabel("Purchase date").fill("2026-11-23");
+    await page.getByLabel("Item", { exact: true }).fill("Journal");
+    await page.getByLabel("Price in minor units").fill("1200");
+    await page.getByRole("button", { name: "Save purchase" }).click();
+    await expect(page.getByRole("heading", { name: merchant })).toBeVisible();
+  }
+  await confirm("First merchant");
+  const next = page.getByRole("button", { name: "Review next receipt" });
+  await next.click();
+  await expect(page.getByText(/Upload failed/)).toBeVisible();
+  await next.click();
+  await expect(page.getByText(/already been confirmed/)).toBeVisible();
+  await next.click();
+  await confirm("Second merchant");
+  await page.getByRole("button", { name: "Clear waiting receipts" }).click();
+  await expect(next).toHaveCount(0);
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "First merchant" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Second merchant" }),
+  ).toBeVisible();
+  const purchases = await page.evaluate(
+    async () => (await (await fetch("/api/v1/purchases")).json()).data,
+  );
+  expect(purchases).toHaveLength(2);
+});
