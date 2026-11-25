@@ -1,4 +1,5 @@
 "use client";
+import { GuidedField } from "../guided-field";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 type Entry = {
@@ -50,8 +51,10 @@ export default function ProtectionCenter() {
       <h1>Protection center</h1>
       <output>{status}</output>
       {entries.length > 0 && (
-        <label>
-          View protection type
+        <GuidedField
+          label="View protection type"
+          hint="Choose a category to narrow the list of recorded checks."
+        >
           <select value={kind} onChange={(e) => setKind(e.target.value)}>
             <option value="">All checks</option>
             {Object.entries({
@@ -67,7 +70,7 @@ export default function ProtectionCenter() {
               </option>
             ))}
           </select>
-        </label>
+        </GuidedField>
       )}
       {kind && !entries.some((e) => e.kind === kind) && (
         <p>No records for this protection type.</p>

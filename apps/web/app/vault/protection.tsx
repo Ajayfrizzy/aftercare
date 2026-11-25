@@ -1,4 +1,5 @@
 "use client";
+import { GuidedField } from "../guided-field";
 import { useState, type FormEvent } from "react";
 import type { Observation } from "@aftercare/contracts";
 import { Research } from "./research";
@@ -48,6 +49,36 @@ const labels: Record<string, string> = {
   dueAt: "Expected by",
   amountMinor: "Promised amount in minor units",
   received: "I confirm receipt",
+};
+const protectionHelp: Record<string, string> = {
+  region:
+    "Use two uppercase country letters, such as NG for Nigeria or US for the United States. +234 is a phone code.",
+  source: "Paste the full link to the evidence, including https://.",
+  observedAt: "Choose the local date and time you saw the source.",
+  excerpt:
+    "Quote the part of the source that supports this record, up to 1,500 characters.",
+  start: "Choose when coverage began according to the source.",
+  days: "Enter a whole number of 24-hour periods.",
+  expiresAt: "Choose when this evidence stops applying.",
+  paidMinor:
+    "Enter the original price in the purchase currency’s smallest units. ₦12.45 is 1245 kobo.",
+  offerMinor:
+    "Enter the comparable offer in the same currency and units as the paid amount.",
+  sameSku: "Check only if the product identifiers match exactly.",
+  sameCondition:
+    "Check if both products have the same condition, such as both new.",
+  sameSeller: "Check if both offers come from the same seller.",
+  policySource:
+    "Paste the full link to the merchant’s price adjustment policy.",
+  brand: "Copy the brand from your purchased product.",
+  model: "Copy the exact model identifier from your unit.",
+  noticeBrand: "Copy the brand as printed in the recall notice.",
+  noticeModel: "Copy the model identifier listed in the official notice.",
+  dueAt:
+    "Choose the date and local time by which delivery or refund was promised.",
+  amountMinor:
+    "Enter the promised refund in the purchase currency’s smallest units. ₦12.45 is 1245 kobo.",
+  received: "Check only after you have received the delivery.",
 };
 const dates = new Set(["start", "expiresAt", "dueAt", "observedAt"]);
 const flags = new Set(["received", "sameSku", "sameCondition", "sameSeller"]);
@@ -205,8 +236,10 @@ export function Protection({
                   (r.evidence.received ? "user_confirmed_received" : "promised")
                 ).replaceAll("_", " ")}
               </p>
-              <label>
-                New refund status
+              <GuidedField
+                label="New refund status"
+                hint="Choose the status supported by your latest evidence."
+              >
                 <select name="status">
                   {[
                     "promised",
@@ -220,15 +253,19 @@ export function Protection({
                     </option>
                   ))}
                 </select>
-              </label>
-              <label>
-                Update evidence URL
+              </GuidedField>
+              <GuidedField
+                label="Update evidence URL"
+                hint="Paste the full link to the source for this update, including https://."
+              >
                 <input type="url" name="source" required />
-              </label>
-              <label>
-                What changed?
+              </GuidedField>
+              <GuidedField
+                label="What changed?"
+                hint="Summarize the new information in up to 1,500 characters."
+              >
                 <input name="excerpt" required maxLength={1500} />
-              </label>
+              </GuidedField>
               <button type="submit" disabled={busy}>
                 Update refund
               </button>
@@ -282,8 +319,10 @@ export function Protection({
       <Research purchaseId={purchase.id} />
       <form onSubmit={save}>
         <h3>Record protection evidence</h3>
-        <label>
-          Protection type
+        <GuidedField
+          label="Protection type"
+          hint="Choose what the source documents, such as a return window or promised refund."
+        >
           <select
             value={kind}
             onChange={(e) => setKind(e.target.value as Kind)}
@@ -294,12 +333,14 @@ export function Protection({
               </option>
             ))}
           </select>
-        </label>
+        </GuidedField>
         {(kind === "return" || kind === "warranty") && (
           <fieldset>
             <legend>Policy timing</legend>
-            <label>
-              Deadline basis
+            <GuidedField
+              label="Deadline basis"
+              hint="Use the timing rule printed in the policy. Choose elapsed days for an estimate."
+            >
               <select value={basis} onChange={(e) => setBasis(e.target.value)}>
                 <option value="elapsed">Estimated elapsed days</option>
                 <option value="date">
@@ -308,21 +349,27 @@ export function Protection({
                 <option value="days">Calendar days after start</option>
                 <option value="months">Calendar months after start</option>
               </select>
-            </label>
+            </GuidedField>
             {basis !== "elapsed" && (
               <>
-                <label>
-                  Policy time zone
+                <GuidedField
+                  label="Policy time zone"
+                  hint="Use the zone named by the policy, such as Africa/Lagos or America/New_York."
+                >
                   <input name="zone" required placeholder="America/New_York" />
-                </label>
+                </GuidedField>
                 {basis === "date" ? (
-                  <label>
-                    Last eligible date
+                  <GuidedField
+                    label="Last eligible date"
+                    hint="Choose the final day the policy allows a claim."
+                  >
                     <input name="lastDate" required type="date" />
-                  </label>
+                  </GuidedField>
                 ) : (
-                  <label>
-                    Calendar periods
+                  <GuidedField
+                    label="Calendar periods"
+                    hint="Enter a whole number of days or months matching the deadline basis."
+                  >
                     <input
                       name="count"
                       required
@@ -330,15 +377,17 @@ export function Protection({
                       min="1"
                       max="1200"
                     />
-                  </label>
+                  </GuidedField>
                 )}
               </>
             )}
           </fieldset>
         )}
         {kind === "refund" && (
-          <label>
-            Refund status
+          <GuidedField
+            label="Refund status"
+            hint="Choose the latest status supported by your source."
+          >
             <select name="refundStatus">
               {[
                 "promised",
@@ -352,13 +401,16 @@ export function Protection({
                 </option>
               ))}
             </select>
-          </label>
+          </GuidedField>
         )}
         {["region", "source", "observedAt", "excerpt", ...inputs[kind]]
           .filter((key) => key !== "days" || basis === "elapsed")
           .map((key) => (
-            <label key={key}>
-              {labels[key]}
+            <GuidedField
+              key={key}
+              label={labels[key]}
+              hint={protectionHelp[key]}
+            >
               <input
                 name={key}
                 type={
@@ -375,7 +427,7 @@ export function Protection({
                 required={!flags.has(key)}
                 pattern={key === "region" ? "[A-Z]{2}" : undefined}
               />
-            </label>
+            </GuidedField>
           ))}
         <p>
           Times use your local time zone. Research and scheduled wake are

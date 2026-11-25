@@ -1,4 +1,5 @@
 "use client";
+import { GuidedField } from "../guided-field";
 import { useState } from "react";
 export default function DeleteAccount({ done }: { done: () => void }) {
   const [busy, setBusy] = useState(false),
@@ -46,28 +47,34 @@ export default function DeleteAccount({ done }: { done: () => void }) {
             }
           }}
         >
-          <label>
-            Account email
+          <GuidedField
+            label="Account email"
+            hint="Enter the email address you use to sign in."
+          >
             <input required type="email" name="email" autoComplete="username" />
-          </label>
-          <label>
-            Current password
+          </GuidedField>
+          <GuidedField
+            label="Current password"
+            hint="Enter your current Aftercare password to authorize deletion."
+          >
             <input
               required
               type="password"
               name="password"
               autoComplete="current-password"
             />
-          </label>
-          <label>
-            Type DELETE to confirm
+          </GuidedField>
+          <GuidedField
+            label="Type DELETE to confirm"
+            hint="Enter the word DELETE in uppercase to confirm permanent deletion."
+          >
             <input
               required
               pattern="DELETE"
               name="confirmation"
               autoComplete="off"
             />
-          </label>
+          </GuidedField>
           <button disabled={busy} type="submit">
             {busy ? "Deleting account…" : "Permanently delete account"}
           </button>

@@ -1,4 +1,5 @@
 "use client";
+import { GuidedField } from "../guided-field";
 import { useState } from "react";
 export default function Items({
   initial,
@@ -13,17 +14,21 @@ export default function Items({
       <legend>Line items</legend>
       {items.map((item, i) => (
         <div className="item-row" key={item.key}>
-          <label>
-            Item
+          <GuidedField
+            label="Item"
+            hint="Copy the product name from this receipt line."
+          >
             <input
               name="name"
               required
               maxLength={200}
               defaultValue={item.name}
             />
-          </label>
-          <label>
-            Price in minor units
+          </GuidedField>
+          <GuidedField
+            label="Price in minor units"
+            hint="Enter digits only. For ₦12.45 enter 1245 kobo. For US $12.45 enter 1245 cents."
+          >
             <input
               name="minor"
               required
@@ -31,7 +36,7 @@ export default function Items({
               pattern="[0-9]{1,18}"
               defaultValue={item.minor}
             />
-          </label>
+          </GuidedField>
           {items.length > 1 && (
             <button
               type="button"

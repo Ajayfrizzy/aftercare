@@ -1,4 +1,5 @@
 "use client";
+import { GuidedField } from "../guided-field";
 import { useState } from "react";
 export function Research({ purchaseId }: { purchaseId: string }) {
   const [kind, setKind] = useState("policy"),
@@ -54,8 +55,10 @@ export function Research({ purchaseId }: { purchaseId: string }) {
           }
         }}
       >
-        <label>
-          Research task
+        <GuidedField
+          label="Research task"
+          hint="Choose a policy lookup or a US product recall check."
+        >
           <select
             value={kind}
             onChange={(e) => {
@@ -68,9 +71,15 @@ export function Research({ purchaseId }: { purchaseId: string }) {
             <option value="price">Price adjustment policy</option>
             <option value="recall">US recall notices</option>
           </select>
-        </label>
-        <label>
-          Research region
+        </GuidedField>
+        <GuidedField
+          label="Research region"
+          hint={
+            kind === "recall"
+              ? "US recall notices cover the United States."
+              : "Use two uppercase country letters, such as NG for Nigeria or GB for the United Kingdom."
+          }
+        >
           <input
             key={kind}
             name="region"
@@ -79,27 +88,35 @@ export function Research({ purchaseId }: { purchaseId: string }) {
             defaultValue={kind === "recall" ? "US" : ""}
             readOnly={kind === "recall"}
           />
-        </label>
+        </GuidedField>
         {kind === "recall" ? (
           <>
-            <label>
-              Product brand
+            <GuidedField
+              label="Product brand"
+              hint="Copy the manufacturer or brand from the product label."
+            >
               <input name="brand" required />
-            </label>
-            <label>
-              Product model
+            </GuidedField>
+            <GuidedField
+              label="Product model"
+              hint="Enter the exact model number, including any suffix."
+            >
               <input name="model" required />
-            </label>
-            <label>
-              Unit serial (optional)
+            </GuidedField>
+            <GuidedField
+              label="Unit serial (optional)"
+              hint="Copy the serial from your individual unit if available."
+            >
               <input name="serial" maxLength={100} />
-            </label>
+            </GuidedField>
           </>
         ) : (
-          <label>
-            Merchant website domain
+          <GuidedField
+            label="Merchant website domain"
+            hint="Enter the store hostname, such as shop.example, without a page path."
+          >
             <input name="domain" placeholder="shop.example" required />
-          </label>
+          </GuidedField>
         )}
         <button type="submit" disabled={busy}>
           Check research availability

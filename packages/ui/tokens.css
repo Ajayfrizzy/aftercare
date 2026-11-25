@@ -449,3 +449,19 @@ section {
 .vault input[aria-invalid="true"] + small {
   color: light-dark(#92291e, #ffb8ac);
 }
+
+.field-guide {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.45;
+  grid-column: 1 / -1;
+}
+.vault label:has(input[type="checkbox"]):has(.field-guide) {
+  display: grid;
+  grid-template-columns: auto 1fr;
+}
+.vault label:has(.field-guide) > input[type="checkbox"] {
+  grid-row: 1;
+  grid-column: 1;
+}

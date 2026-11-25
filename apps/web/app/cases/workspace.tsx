@@ -1,4 +1,5 @@
 "use client";
+import { GuidedField } from "../guided-field";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 type Receipt = { id: string; sha: string; mime: string; bytes: number };
@@ -138,8 +139,10 @@ export function CaseWorkspace({
                     );
                   }}
                 >
-                  <label>
-                    Recovery status
+                  <GuidedField
+                    label="Recovery status"
+                    hint="Choose the stage that reflects the latest case update."
+                  >
                     <select name="status">
                       <option value="awaiting_owner">Awaiting owner</option>
                       <option value="awaiting_merchant">
@@ -149,11 +152,13 @@ export function CaseWorkspace({
                         Resolved by owner
                       </option>
                     </select>
-                  </label>
-                  <label>
-                    Correction or confirmation
+                  </GuidedField>
+                  <GuidedField
+                    label="Correction or confirmation"
+                    hint="Explain what changed and what evidence supports it. Use up to 2,000 characters."
+                  >
                     <textarea name="note" maxLength={2000} required />
-                  </label>
+                  </GuidedField>
                   <button type="submit">Record update</button>
                 </form>
               </details>
@@ -175,31 +180,37 @@ export function CaseWorkspace({
                   });
                 }}
               >
-                <label>
-                  Intended recipient
+                <GuidedField
+                  label="Intended recipient"
+                  hint="Identify the merchant or support contact who should receive this claim."
+                >
                   <input
                     name="recipient"
                     required
                     defaultValue={c.draft?.recipient}
                   />
-                </label>
-                <label>
-                  Claim text
+                </GuidedField>
+                <GuidedField
+                  label="Claim text"
+                  hint="Describe the issue, cite the evidence and say what resolution you want."
+                >
                   <textarea
                     name="body"
                     rows={5}
                     required
                     defaultValue={c.draft?.body ?? c.suggestion}
                   />
-                </label>
-                <label>
-                  Hide exact text in claim body
+                </GuidedField>
+                <GuidedField
+                  label="Hide exact text in claim body"
+                  hint="Optional. Copy the exact text to hide in the letter. Receipt files remain unchanged."
+                >
                   <input
                     name="redact"
                     maxLength={200}
                     defaultValue={c.draft?.redact}
                   />
-                </label>
+                </GuidedField>
                 <fieldset>
                   <legend>Receipt attachments</legend>
                   <p>
@@ -211,7 +222,14 @@ export function CaseWorkspace({
                   )}
                   {c.receipts.map((f) => (
                     <div key={f.id}>
-                      <label>
+                      <GuidedField
+                        label={
+                          <>
+                            {f.mime} · {f.bytes} bytes · {f.sha.slice(0, 12)}
+                          </>
+                        }
+                        hint="Include this original file in the approved attachment selection."
+                      >
                         <input
                           name="attachments"
                           type="checkbox"
@@ -219,9 +237,8 @@ export function CaseWorkspace({
                           defaultChecked={c.draft?.attachments.some(
                             (a) => a.id === f.id,
                           )}
-                        />{" "}
-                        {f.mime} · {f.bytes} bytes · {f.sha.slice(0, 12)}
-                      </label>
+                        />
+                      </GuidedField>
                       <a
                         href={"/api/v1/artifacts/" + f.id + "/preview"}
                         target="_blank"

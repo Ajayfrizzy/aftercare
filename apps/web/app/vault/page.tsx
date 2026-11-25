@@ -1,4 +1,5 @@
 "use client";
+import { GuidedField } from "../guided-field";
 import { Protection } from "./protection";
 import { PurchaseField } from "./purchase-field";
 import Items from "./items";
@@ -281,12 +282,20 @@ export default function Vault() {
       {!(edit && user) && <output>{message}</output>}
       {!user ? (
         <form onSubmit={submit}>
-          <label>
-            Email
+          <GuidedField
+            label="Email"
+            hint="Use the email address for your Aftercare account, such as name@example.com."
+          >
             <input name="email" type="email" autoComplete="email" required />
-          </label>
-          <label>
-            Password
+          </GuidedField>
+          <GuidedField
+            label="Password"
+            hint={
+              register
+                ? "Choose a password with at least 12 characters."
+                : "Enter the password you used to register."
+            }
+          >
             <input
               name="password"
               type="password"
@@ -294,7 +303,7 @@ export default function Vault() {
               autoComplete={register ? "new-password" : "current-password"}
               required
             />
-          </label>
+          </GuidedField>
           <button type="submit">
             {register ? "Create account" : "Sign in"}
           </button>
@@ -304,15 +313,16 @@ export default function Vault() {
         </form>
       ) : (
         <>
-          <label
+          <GuidedField
             className="receipt-drop"
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               e.preventDefault();
               selectReceipts(Array.from(e.dataTransfer.files));
             }}
+            label="Import receipt"
+            hint="Choose one or more PDF, JPEG, PNG or plain-text receipts to review."
           >
-            Import receipt
             <input
               id="receipt-file"
               multiple
@@ -324,7 +334,7 @@ export default function Vault() {
                 selectReceipts(files);
               }}
             />
-          </label>
+          </GuidedField>
           {uploading && <output>Uploading receipt…</output>}
           {queue.length > 0 && (
             <section aria-label="Receipt queue">
@@ -483,9 +493,7 @@ export default function Vault() {
                       <span id={`purchase-field-${key}`}>{label}</span>
                       <input
                         aria-labelledby={`purchase-field-${key}`}
-                        aria-describedby={
-                          artifact ? "review-" + key : undefined
-                        }
+                        aria-describedby={"review-" + key}
                         name={key}
                         type={key === "date" ? "date" : "text"}
                         required={
@@ -497,7 +505,7 @@ export default function Vault() {
                           (artifact && key ? draft[key] : undefined) ?? value
                         }
                       />
-                      {artifact && (
+                      {
                         <small id={"review-" + key}>
                           {key === "date"
                             ? "Use the purchase date printed on the receipt."
@@ -509,17 +517,19 @@ export default function Vault() {
                                   ? "Leave blank if the source gives no order number."
                                   : "Record anything unclear in the source here."}
                         </small>
-                      )}
+                      }
                     </label>
                   ),
                 )}
-                <label>
-                  Tags (comma separated)
+                <GuidedField
+                  label="Tags (comma separated)"
+                  hint="Optional. Separate tags with commas, such as home, electronics. Use up to 32 tags of 48 characters each."
+                >
                   <input
                     name="tags"
                     defaultValue={selected?.tags?.join(", ") ?? ""}
                   />
-                </label>
+                </GuidedField>
                 <Items
                   initial={
                     selected?.items ??
@@ -551,17 +561,21 @@ export default function Vault() {
               </form>
             ) : (
               <>
-                <label>
-                  Search purchases
+                <GuidedField
+                  label="Search purchases"
+                  hint="Search by merchant, item or tag."
+                >
                   <input
                     type="search"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
-                </label>
+                </GuidedField>
                 <div className="vault-filters">
-                  <label>
-                    Merchant
+                  <GuidedField
+                    label="Filter by merchant"
+                    hint="Choose a seller to narrow the purchase list."
+                  >
                     <select
                       value={store}
                       onChange={(e) => setStore(e.target.value)}
@@ -573,9 +587,11 @@ export default function Vault() {
                           <option key={m}>{m}</option>
                         ))}
                     </select>
-                  </label>
-                  <label>
-                    Filter by protection category
+                  </GuidedField>
+                  <GuidedField
+                    label="Filter by protection category"
+                    hint="Choose the kind of protection recorded for the purchase."
+                  >
                     <select
                       value={kindFilter}
                       onChange={(e) => setKindFilter(e.target.value)}
@@ -592,9 +608,11 @@ export default function Vault() {
                         <option key={k}>{k}</option>
                       ))}
                     </select>
-                  </label>
-                  <label>
-                    Risk status
+                  </GuidedField>
+                  <GuidedField
+                    label="Risk status"
+                    hint="Show purchases with the selected protection status."
+                  >
                     <select
                       value={risk}
                       onChange={(e) => setRisk(e.target.value)}
@@ -605,15 +623,17 @@ export default function Vault() {
                       <option value="monitoring">Monitoring</option>
                       <option value="closed">Closed</option>
                     </select>
-                  </label>
-                  <label>
-                    Purchased since
+                  </GuidedField>
+                  <GuidedField
+                    label="Purchased since"
+                    hint="Include purchases on or after this date. Clear it to include earlier purchases."
+                  >
                     <input
                       type="date"
                       value={after}
                       onChange={(e) => setAfter(e.target.value)}
                     />
-                  </label>
+                  </GuidedField>
                   <button
                     type="button"
                     aria-pressed={view === "list"}
@@ -683,8 +703,10 @@ export default function Vault() {
                             <dd>{p.notes || "None"}</dd>
                           </dl>
                           <p>Tags · {p.tags?.join(", ") || "None"}</p>
-                          <label>
-                            Add original receipt
+                          <GuidedField
+                            label="Add original receipt"
+                            hint="Choose a PDF, JPEG, PNG or plain-text original to attach to this purchase."
+                          >
                             <input
                               type="file"
                               disabled={uploading}
@@ -695,7 +717,7 @@ export default function Vault() {
                                 if (file) void importReceipt(file, p.id);
                               }}
                             />
-                          </label>
+                          </GuidedField>
                           {p.sources?.map((id) => (
                             <a
                               key={id}

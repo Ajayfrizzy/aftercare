@@ -1,4 +1,5 @@
 "use client";
+import { GuidedField } from "../guided-field";
 import { useEffect, useState } from "react";
 export default function Controls() {
   const [settings, setSettings] = useState<{
@@ -48,7 +49,10 @@ export default function Controls() {
           >
             {settings.paused ? "Resume checks" : "Pause checks"}
           </button>
-          <label>
+          <GuidedField
+            label="Follow-up reminders in my journal"
+            hint="Enable this to see follow-up reminders inside Aftercare."
+          >
             <input
               type="checkbox"
               checked={settings.reminders}
@@ -57,8 +61,7 @@ export default function Controls() {
                 save({ ...settings, reminders: e.target.checked })
               }
             />
-            Follow-up reminders in my journal
-          </label>
+          </GuidedField>
         </>
       )}
       <output>{message}</output>

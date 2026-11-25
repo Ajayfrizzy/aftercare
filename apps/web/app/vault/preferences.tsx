@@ -1,5 +1,13 @@
 "use client";
+import { GuidedField } from "../guided-field";
 import { useEffect, useState } from "react";
+import { preferences } from "@aftercare/contracts";
+const regionalHelp = {
+  locale: "Use a language code such as en or en-NG for English in Nigeria.",
+  timezone: "Use a city-based time zone such as Africa/Lagos, or UTC.",
+  currency:
+    "Use three uppercase currency letters, such as NGN for naira or USD for US dollars.",
+};
 export default function Preferences({
   onEntry,
   onImport,
@@ -105,13 +113,30 @@ export default function Preferences({
         >
           {step !== 2 &&
             (["locale", "timezone", "currency"] as const).map((k) => (
-              <label key={k}>
-                {k}
+              <GuidedField
+                key={k}
+                label={
+                  {
+                    locale: "Language / locale",
+                    timezone: "Time zone",
+                    currency: "Currency",
+                  }[k]
+                }
+                hint={regionalHelp[k]}
+              >
                 <input
+                  required
+                  ref={(input) => {
+                    input?.setCustomValidity(
+                      preferences.shape[k].safeParse(data[k]).success
+                        ? ""
+                        : regionalHelp[k],
+                    );
+                  }}
                   value={data[k]}
                   onChange={(e) => setData({ ...data, [k]: e.target.value })}
                 />
-              </label>
+              </GuidedField>
             ))}
           {step !== 1 && (
             <>
@@ -119,7 +144,10 @@ export default function Preferences({
                 Both permissions are optional. You can enter and review
                 purchases yourself and change your choices later.
               </p>
-              <label>
+              <GuidedField
+                label="Allow receipt extraction when available"
+                hint="Allow Aftercare to suggest editable purchase details from your receipts."
+              >
                 <input
                   type="checkbox"
                   checked={data.extractionConsent}
@@ -127,9 +155,11 @@ export default function Preferences({
                     setData({ ...data, extractionConsent: e.target.checked })
                   }
                 />
-                Allow receipt extraction when available
-              </label>
-              <label>
+              </GuidedField>
+              <GuidedField
+                label="Allow merchant policy research when available"
+                hint="Allow Aftercare to look up policies for purchases you choose to research."
+              >
                 <input
                   type="checkbox"
                   checked={data.researchConsent}
@@ -137,8 +167,7 @@ export default function Preferences({
                     setData({ ...data, researchConsent: e.target.checked })
                   }
                 />
-                Allow merchant policy research when available
-              </label>
+              </GuidedField>
             </>
           )}
           <button type="submit">

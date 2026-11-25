@@ -1,4 +1,5 @@
 "use client";
+import { GuidedField } from "./guided-field";
 import { useRef, useState } from "react";
 import Link from "next/link";
 type Hit = {
@@ -54,15 +55,17 @@ export default function Find() {
           void run(false);
         }}
       >
-        <label>
-          Search your journal
+        <GuidedField
+          label="Search your journal"
+          hint="Enter a merchant, purchase or case keyword to search your journal."
+        >
           <input
             required
             maxLength={120}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-        </label>
+        </GuidedField>
         <button type="submit">Search</button>
         <button type="button" onClick={() => run(true)}>
           View notifications
