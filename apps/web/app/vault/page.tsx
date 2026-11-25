@@ -102,6 +102,17 @@ export default function Vault() {
         .then(setRecords)
         .catch((e) => setMessage(e.message));
   }, [user]);
+  const [savedId, setSavedId] = useState("");
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    if (!savedId || edit) return;
+    const card = document.getElementById("purchase-" + savedId);
+    const details = card?.querySelector<HTMLDetailsElement>(
+      "details.purchase-detail",
+    );
+    if (details) details.open = true;
+    card?.focus();
+  }, [savedId, edit]);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -117,7 +128,9 @@ export default function Vault() {
         setMessage("");
         return;
       }
-      await request(
+      if (saving) return;
+      setSaving(true);
+      const saved = await request(
         artifact
           ? `extractions/${artifact}/confirm`
           : `purchases${selected ? `/${selected.id}` : ""}`,
@@ -148,9 +161,12 @@ export default function Vault() {
       await refresh();
       setSelected(null);
       setEdit(false);
+      setSavedId(saved.id);
       setMessage("Purchase saved.");
     } catch (err) {
       setMessage((err as Error).message);
+    } finally {
+      setSaving(false);
     }
   }
   async function importReceipt(file: File, purchaseId?: string) {
@@ -477,7 +493,9 @@ export default function Vault() {
                       : [{ name: "", minor: "" }])
                   }
                 />
-                <button type="submit">Save purchase</button>
+                <button type="submit" disabled={saving}>
+                  {saving ? "Saving…" : "Save purchase"}
+                </button>
                 <button type="button" onClick={() => setEdit(false)}>
                   Cancel
                 </button>
@@ -578,7 +596,7 @@ export default function Vault() {
                     <p>No purchases match your search.</p>
                   ) : (
                     matches.map((p) => (
-                      <article id={`purchase-${p.id}`} key={p.id}>
+                      <article tabIndex={-1} id={`purchase-${p.id}`} key={p.id}>
                         <div className="merchant-heading">
                           <span aria-hidden="true">
                             {p.merchant.slice(0, 1)}
@@ -592,8 +610,11 @@ export default function Vault() {
                         <p>
                           {p.date} · {p.items.map((i) => i.name).join(", ")}
                         </p>
-                        <details>
+                        <details className="purchase-detail">
                           <summary>Purchase details</summary>
+                          {savedId === p.id && (
+                            <strong>Saved to your vault</strong>
+                          )}
                           <dl>
                             <dt>Order number</dt>
                             <dd>{p.orderNumber || "Unrecorded"}</dd>

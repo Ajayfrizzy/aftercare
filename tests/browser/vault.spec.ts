@@ -173,6 +173,11 @@ for (const width of [390, 1440]) {
     await page.getByRole("button", { name: "Edit Paper shop" }).click();
     await page.getByLabel("Item", { exact: true }).nth(1).fill("Blue pen");
     await page.getByRole("button", { name: "Save purchase" }).click();
+    await expect(page.getByText("Saved to your vault")).toBeVisible();
+    await expect(
+      page.getByText("Blue pen · 200 minor units (USD)"),
+    ).toBeVisible();
+    await page.reload();
     await page.getByText("Purchase details", { exact: true }).press("Enter");
     await expect(
       page.getByText("Blue pen · 200 minor units (USD)"),
