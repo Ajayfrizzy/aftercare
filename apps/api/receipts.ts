@@ -1,7 +1,5 @@
-import {
-  extractionAvailability,
-  receiptCandidates,
-} from "../../packages/connectors/extraction.ts";
+import { receiptText, printedFields } from "./receipt-text.ts";
+import { receiptCandidates } from "../../packages/connectors/extraction.ts";
 import multipart from "@fastify/multipart";
 import { randomUUID, createHash } from "node:crypto";
 import {
@@ -57,6 +55,59 @@ export async function receiptRoutes(
     )
       return reply.code(403).send({ error: { code: "CSRF" } });
   });
+  async function extract(id: string, mime: string, owner: string) {
+    const consent = () =>
+      Boolean(
+        JSON.parse(
+          String(
+            db.prepare("SELECT preferences FROM users WHERE id=?").get(owner)
+              ?.preferences ?? "{}",
+          ),
+        ).extractionConsent,
+      );
+    if (consent()) {
+      const text = await receiptText(join(root, id), mime).catch(() => "");
+      if (!text.trim())
+        return "No readable text was found. Try a clearer image or enter the details manually.";
+      if (!consent()) return "Receipt extraction permission is off.";
+      let candidates = await receiptCandidates(text).catch(() => []);
+      if (!candidates.length) candidates = printedFields(text);
+      if (candidates.length && consent()) {
+        db.exec("BEGIN IMMEDIATE");
+        try {
+          const save = db.prepare(
+            "INSERT INTO review_fields(owner,artifact,field,value,source,status) SELECT ?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM artifacts WHERE user_id=? AND id=?) AND NOT EXISTS(SELECT 1 FROM review_fields WHERE owner=? AND artifact=? AND field=?) AND NOT EXISTS(SELECT 1 FROM receipt_evidence WHERE user_id=? AND artifact_id=?)",
+          );
+          for (const c of candidates)
+            save.run(
+              owner,
+              id,
+              c.field,
+              c.value,
+              c.source,
+              c.source.startsWith("Workers AI")
+                ? "model_candidate"
+                : "provisional",
+              owner,
+              id,
+              owner,
+              id,
+              c.field,
+              owner,
+              id,
+            );
+          db.exec("COMMIT");
+        } catch (error) {
+          db.exec("ROLLBACK");
+          throw error;
+        }
+      }
+      return candidates.length
+        ? "Review the suggested fields against the original."
+        : "No purchase fields were recognized. Enter details manually.";
+    }
+    return "Extraction permission is off. Enable it in Privacy, then retry.";
+  }
   app.post("/artifacts/upload", async (req, reply) => {
     const file = await req.file();
     if (!file)
@@ -89,48 +140,10 @@ export async function receiptRoutes(
       unlinkSync(join(root, id));
       throw error;
     }
-    const consent = () =>
-      Boolean(
-        JSON.parse(
-          String(
-            db.prepare("SELECT preferences FROM users WHERE id=?").get(owner)
-              ?.preferences ?? "{}",
-          ),
-        ).extractionConsent,
-      );
-    if (mime === "text/plain" && bytes.length <= 8000 && consent()) {
-      const candidates = await receiptCandidates(bytes.toString("utf8")).catch(
-        () => [],
-      );
-      if (candidates.length && consent()) {
-        db.exec("BEGIN IMMEDIATE");
-        try {
-          const save = db.prepare(
-            "INSERT INTO review_fields(owner,artifact,field,value,source,status) SELECT ?,?,?,?,?,'model_candidate' WHERE EXISTS(SELECT 1 FROM artifacts WHERE user_id=? AND id=?) AND NOT EXISTS(SELECT 1 FROM review_fields WHERE owner=? AND artifact=? AND field=?) AND NOT EXISTS(SELECT 1 FROM receipt_evidence WHERE user_id=? AND artifact_id=?)",
-          );
-          for (const c of candidates)
-            save.run(
-              owner,
-              id,
-              c.field,
-              c.value,
-              c.source,
-              owner,
-              id,
-              owner,
-              id,
-              c.field,
-              owner,
-              id,
-            );
-          db.exec("COMMIT");
-        } catch (error) {
-          db.exec("ROLLBACK");
-          throw error;
-        }
-      }
-    }
-    return reply.code(201).send({ data: { id, mime, duplicate: false } });
+    const extraction = await extract(id, mime, String(owner));
+    return reply
+      .code(201)
+      .send({ data: { id, mime, duplicate: false, extraction } });
   });
   app.post<{ Params: { id: string; artifact: string } }>(
     "/purchases/:id/receipts/:artifact",
@@ -171,7 +184,7 @@ export async function receiptRoutes(
         id = req.params.id;
       if (
         !db
-          .prepare("SELECT id FROM artifacts WHERE id=? AND user_id=?")
+          .prepare("SELECT id,mime FROM artifacts WHERE id=? AND user_id=?")
           .get(id, owner)
       )
         return reply.code(404).send({ error: { code: "NOT_FOUND" } });
@@ -232,10 +245,24 @@ export async function receiptRoutes(
     "/artifacts/:id/extract",
     async (req, reply) => {
       const file = db
-        .prepare("SELECT id FROM artifacts WHERE id=? AND user_id=?")
+        .prepare("SELECT id,mime FROM artifacts WHERE id=? AND user_id=?")
         .get(req.params.id, sessionOwner(db, req));
       if (!file) return reply.code(404).send({ error: { code: "NOT_FOUND" } });
-      return reply.code(503).send({ error: extractionAvailability() });
+      if (
+        db
+          .prepare("SELECT 1 FROM receipt_evidence WHERE artifact_id=?")
+          .get(req.params.id)
+      )
+        return reply.code(409).send({ error: { code: "ALREADY_CONFIRMED" } });
+      return {
+        data: {
+          extraction: await extract(
+            req.params.id,
+            String(file.mime),
+            String(sessionOwner(db, req)),
+          ),
+        },
+      };
     },
   );
   app.post<{ Params: { id: string } }>(
@@ -245,7 +272,7 @@ export async function receiptRoutes(
       const owner = sessionOwner(db, req);
       if (
         !db
-          .prepare("SELECT id FROM artifacts WHERE id=? AND user_id=?")
+          .prepare("SELECT id,mime FROM artifacts WHERE id=? AND user_id=?")
           .get(req.params.id, owner)
       )
         return reply.code(404).send({ error: { code: "NOT_FOUND" } });

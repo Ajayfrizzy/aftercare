@@ -58,6 +58,7 @@ export default function Vault() {
     setQueue(files.slice(1));
     void importReceipt(files[0]);
   }
+  const [sourceText, setSourceText] = useState<string | null>(null);
   const [artifact, setArtifact] = useState("");
   const [user, setUser] = useState(""),
     [ready, setReady] = useState(false),
@@ -207,6 +208,20 @@ export default function Vault() {
         );
         return;
       }
+      if (
+        data.duplicate &&
+        !(await request(`artifacts/${data.id}/review`)).some(
+          (row: { status: string }) => row.status === "confirmed",
+        )
+      ) {
+        const result = await fetch(`/api/v1/artifacts/${data.id}/extract`, {
+          method: "POST",
+        });
+        if (result.ok) data.extraction = (await result.json()).data.extraction;
+      }
+      setSourceText(
+        data.mime === "text/plain" ? await file.slice(0, 64000).text() : null,
+      );
       const history: {
         field: string;
         value: string;
@@ -231,7 +246,8 @@ export default function Vault() {
                 .map((r) => r.field + " (" + r.source + ")")
                 .join(", ") +
               ". Verify each value against the receipt."
-          : "Review the receipt and enter the purchase details manually.",
+          : (data.extraction ??
+              "Review the receipt and enter the purchase details manually."),
       );
     } catch (error) {
       setMessage((error as Error).message);
@@ -387,11 +403,19 @@ export default function Vault() {
           >
             {artifact && edit && (
               <div>
-                <iframe
-                  title="Original receipt"
-                  sandbox=""
-                  src={`/api/v1/artifacts/${artifact}/preview`}
-                />
+                {sourceText !== null ? (
+                  <pre
+                    style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
+                  >
+                    {sourceText}
+                  </pre>
+                ) : (
+                  <iframe
+                    title="Original receipt"
+                    sandbox=""
+                    src={`/api/v1/artifacts/${artifact}/preview`}
+                  />
+                )}
                 <a href={`/api/v1/artifacts/${artifact}/download`}>
                   Download source receipt
                 </a>
@@ -433,6 +457,7 @@ export default function Vault() {
                   }
                 }}
               >
+                {artifact && <output>{message}</output>}
                 <h2>{selected ? "Edit purchase" : "New purchase"}</h2>
                 {[
                   ["merchant", "Merchant", selected?.merchant],
@@ -516,7 +541,7 @@ export default function Vault() {
                       : [{ name: "", minor: "" }])
                   }
                 />
-                <output>{message}</output>
+                {!artifact && <output>{message}</output>}
                 <button type="submit" disabled={saving}>
                   {saving ? "Saving…" : "Save purchase"}
                 </button>

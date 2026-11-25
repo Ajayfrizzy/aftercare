@@ -627,3 +627,96 @@ test("outstanding refund commitment across sizes and themes", async ({
   ).toHaveAttribute("href", "https://example.org/promise");
   await expect(page.getByText("Refund promised for journal")).toBeVisible();
 });
+
+test("consented receipt import reads original text, PDF, JPEG, PNG and scanned PDF on macOS", async ({
+  page,
+}) => {
+  test.skip(process.platform !== "darwin", "Uses macOS Vision and PDFKit");
+  test.setTimeout(120000);
+  await page.goto("/vault");
+  const lines = ["Paper Shop", "2026-11-25", "Notebook USD 12.45"];
+  const images = await page.evaluate(async (lines) => {
+    await fetch("/api/v1/auth/register", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        email: "scan@example.invalid",
+        password: "synthetic receipt password",
+      }),
+    });
+    const pref = await fetch("/api/v1/me/preferences", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        extractionConsent: true,
+        researchConsent: false,
+        locale: "en",
+        currency: "USD",
+        timezone: "UTC",
+      }),
+    });
+    if (!pref.ok) throw Error("Consent fixture failed");
+    const canvas = document.createElement("canvas");
+    canvas.width = 900;
+    canvas.height = 400;
+    const ctx = canvas.getContext("2d")!;
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 0, 900, 400);
+    ctx.fillStyle = "black";
+    ctx.font = "36px Arial";
+    for (const [i, line] of lines.entries())
+      ctx.fillText(line, 40, 80 + 65 * i);
+    return [canvas.toDataURL("image/png"), canvas.toDataURL("image/jpeg")].map(
+      (url) => url.split(",")[1],
+    );
+  }, lines);
+  const { PDFDocument } = await import("pdf-lib");
+  const pdf = await PDFDocument.create();
+  pdf
+    .addPage([900, 400])
+    .drawText(lines.join("\n"), { x: 40, y: 320, size: 36, lineHeight: 65 });
+  const scanned = await PDFDocument.create();
+  scanned
+    .addPage([900, 400])
+    .drawImage(await scanned.embedPng(Buffer.from(images[0], "base64")), {
+      x: 0,
+      y: 0,
+      width: 900,
+      height: 400,
+    });
+  for (const file of [
+    {
+      name: "receipt.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from(lines.join("\n")),
+    },
+    {
+      name: "receipt.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from(await pdf.save()),
+    },
+    {
+      name: "receipt.png",
+      mimeType: "image/png",
+      buffer: Buffer.from(images[0], "base64"),
+    },
+    {
+      name: "receipt.jpg",
+      mimeType: "image/jpeg",
+      buffer: Buffer.from(images[1], "base64"),
+    },
+    {
+      name: "scan.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from(await scanned.save()),
+    },
+  ]) {
+    await page.reload();
+    await page.getByLabel("Import receipt").setInputFiles(file);
+    await expect(
+      page.getByLabel("Merchant", { exact: true }),
+      file.name,
+    ).toHaveValue("Paper Shop", { timeout: 50000 });
+    await expect(page.getByLabel("Price in minor units")).toHaveValue("1245");
+  }
+});
