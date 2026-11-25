@@ -472,6 +472,82 @@ test("expired recovery lease resumes and an approved export is single-use", asyn
   ).json().data;
   assert.equal((await post(`${base}/export`, old)).statusCode, 409);
   const token = (await post(`${base}/approve`, revised)).json().data;
+  // No worker or concurrent requests run while snapshotting the synthetic vault.
+  const { mkdirSync, copyFileSync, readFileSync } = await import("node:fs");
+  const { createHash } = await import("node:crypto");
+  const { verifyAudit } = await import("../packages/db/audit.ts");
+  const snapshot = join(dir, "backup"),
+    restored = join(dir, "restored");
+  mkdirSync(snapshot);
+  mkdirSync(restored);
+  const pending = await post(
+    `/api/v1/purchases/${p.json().data.id}/protection`,
+    {
+      ...basic,
+      observedAt: "2020-01-03T00:00:00Z",
+      kind: "delivery",
+      dueAt: "2020-01-05T00:00:00Z",
+      received: false,
+    },
+  );
+  assert.ok(pending.json().data.id);
+  db.prepare("VACUUM INTO ?").run(join(snapshot, "journal"));
+  copyFileSync(join(snapshot, "journal"), join(restored, "journal"));
+  const copy = openDatabase(join(restored, "journal"));
+  try {
+    assert.equal(
+      copy.prepare("PRAGMA integrity_check").get()?.integrity_check,
+      "ok",
+    );
+    assert.deepEqual(copy.prepare("PRAGMA foreign_key_check").all(), []);
+    for (const table of [
+      "users",
+      "purchases",
+      "artifacts",
+      "receipt_evidence",
+      "audit_events",
+      "audit_heads",
+      "recovery_jobs",
+      "recovery_approvals",
+    ]) {
+      const query = "SELECT * FROM " + table + " ORDER BY rowid";
+      assert.deepEqual(copy.prepare(query).all(), db.prepare(query).all());
+    }
+    const files = copy.prepare("SELECT id,user_id,sha FROM artifacts").all();
+    assert.equal(new Set(files.map((f) => f.user_id)).size, 2);
+    for (const f of files) {
+      const id = String(f.id);
+      copyFileSync(join(dir, id), join(snapshot, id));
+      copyFileSync(join(snapshot, id), join(restored, id));
+      assert.equal(
+        createHash("sha256")
+          .update(readFileSync(join(restored, id)))
+          .digest("hex"),
+        f.sha,
+      );
+      assert.equal(verifyAudit(copy, String(f.user_id)).valid, true);
+    }
+    assert.ok(
+      copy
+        .prepare(
+          "SELECT id FROM recovery_jobs WHERE observation_id=? AND completed_at IS NULL",
+        )
+        .get(pending.json().data.id),
+    );
+    assert.ok(
+      copy
+        .prepare(
+          "SELECT id FROM recovery_approvals WHERE id=? AND consumed_at IS NULL AND revoked_at IS NULL",
+        )
+        .get(token.approvalId),
+    );
+  } finally {
+    copy.close();
+  }
+  // Keep the independent retry fixture below limited to its original job.
+  db.prepare("DELETE FROM protection_observations WHERE id=?").run(
+    pending.json().data.id,
+  );
   const { writeFileSync } = await import("node:fs");
   writeFileSync(join(dir, attachment), "Modified contents");
   assert.equal((await post(`${base}/export`, token)).statusCode, 409);

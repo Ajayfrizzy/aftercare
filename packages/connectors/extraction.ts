@@ -116,7 +116,7 @@ export async function receiptCandidates(text: string, transport = fetch) {
       typeof value !== "string" ||
       !value.trim() ||
       value.length > 160 ||
-      /[\x00-\x1f]/.test(value)
+      Array.from(value).some((character) => character.charCodeAt(0) < 32)
     )
       return [];
     if (field === "merchantWebsite") {
