@@ -18,6 +18,18 @@ export const credentials = z.strictObject({
 export const purchaseInput = z.strictObject({
   merchant: z.string().trim().min(1).max(200),
   date: z.iso.date(),
+  merchantWebsite: z
+    .union([
+      z.literal(""),
+      z
+        .url({ protocol: /^https?$/ })
+        .max(2048)
+        .refine((v) => {
+          const u = new URL(v);
+          return !u.username && !u.password;
+        }),
+    ])
+    .optional(),
   orderNumber: z.string().trim().max(128).default(""),
   currency: z.string().regex(/^[A-Z]{3}$/),
   items: z
@@ -63,7 +75,7 @@ export const reviewPatch = z.strictObject({
   field: z
     .string()
     .regex(
-      /^(merchant|date|currency|orderNumber|notes|items\.(0|[1-9][0-9]?)\.(name|minor))$/,
+      /^(merchant|merchantWebsite|date|currency|orderNumber|notes|items\.(0|[1-9][0-9]?)\.(name|minor))$/,
     ),
   value: z.string().max(4000),
 });

@@ -10,6 +10,7 @@ type Purchase = {
   merchant: string;
   date: string;
   currency: string;
+  merchantWebsite?: string;
   orderNumber: string;
   items: { name: string; minor: string }[];
   notes: string;
@@ -123,6 +124,7 @@ export default function Vault() {
         {
           merchant: val("merchant"),
           date: val("date"),
+          merchantWebsite: val("merchantWebsite"),
           orderNumber: val("orderNumber"),
           currency: val("currency"),
           items: f.getAll("name").map((name, i) => ({
@@ -383,6 +385,11 @@ export default function Vault() {
                 {[
                   ["merchant", "Merchant", selected?.merchant],
                   ["date", "Purchase date", selected?.date],
+                  [
+                    "merchantWebsite",
+                    "Merchant website (optional)",
+                    selected?.merchantWebsite,
+                  ],
                   ["orderNumber", "Order number", selected?.orderNumber],
                   ["currency", "Currency", selected?.currency ?? "USD"],
                   ["notes", "Notes", selected?.notes],
@@ -394,7 +401,11 @@ export default function Vault() {
                       aria-describedby={artifact ? "review-" + key : undefined}
                       name={key}
                       type={key === "date" ? "date" : "text"}
-                      required={key !== "notes" && key !== "orderNumber"}
+                      required={
+                        !["notes", "orderNumber", "merchantWebsite"].includes(
+                          key ?? "",
+                        )
+                      }
                       defaultValue={
                         (artifact && key ? draft[key] : undefined) ?? value
                       }

@@ -334,7 +334,8 @@ test("expired recovery lease resumes and an approved export is single-use", asyn
     origin,
     cookie: String(foreign.headers["set-cookie"]).split(";")[0],
   };
-  const original = "Receipt for synthetic book order";
+  const original =
+    "Receipt for synthetic book order EUR 12.45 https://shop.example";
   async function upload(h: typeof headers) {
     const res = await app.inject({
       method: "POST",
@@ -351,13 +352,84 @@ test("expired recovery lease resumes and an approved export is single-use", asyn
     assert.equal(res.statusCode, 201);
     return res.json().data.id;
   }
+  const account = process.env.AFTERCARE_CF_ACCOUNT,
+    priorAiToken = process.env.AFTERCARE_CF_AI_TOKEN;
+  process.env.AFTERCARE_CF_ACCOUNT = "a".repeat(32);
+  process.env.AFTERCARE_CF_AI_TOKEN = "local-test-only";
+  t.after(() => {
+    if (account === undefined) delete process.env.AFTERCARE_CF_ACCOUNT;
+    else process.env.AFTERCARE_CF_ACCOUNT = account;
+    if (priorAiToken === undefined) delete process.env.AFTERCARE_CF_AI_TOKEN;
+    else process.env.AFTERCARE_CF_AI_TOKEN = priorAiToken;
+  });
+  t.mock.method(globalThis, "fetch", async (url: string) =>
+    Response.json(
+      url.endsWith("/subscriptions")
+        ? { success: true, result: [] }
+        : {
+            result: {
+              response: {
+                merchantWebsite: "https://shop.example",
+                items: [{ name: "Book", minor: 12 }],
+              },
+            },
+          },
+    ),
+  );
+  const prefs = await app.inject({
+    method: "PATCH",
+    url: "/api/v1/me/preferences",
+    headers,
+    payload: {
+      locale: "en",
+      currency: "EUR",
+      timezone: "UTC",
+      researchConsent: false,
+      extractionConsent: true,
+    },
+  });
+  assert.equal(prefs.statusCode, 200);
   const attachment = await upload(headers),
     foreignAttachment = await upload(otherHeaders);
+  const review = `/api/v1/artifacts/${attachment}/review`;
+  const candidates = (await app.inject({ url: review, headers })).json().data;
+  assert.ok(
+    candidates.some(
+      (r: { field: string; value: string; status: string; source: string }) =>
+        r.field === "items.0.minor" &&
+        r.value === "12" &&
+        r.status === "model_candidate" &&
+        r.source.startsWith("Workers AI"),
+    ),
+  );
+  assert.ok(
+    candidates.some(
+      (r: { field: string; value: string }) =>
+        r.field === "merchantWebsite" && r.value === "https://shop.example",
+    ),
+  );
+  assert.equal(
+    (await post(review, { field: "items.0.minor", value: "1245" })).statusCode,
+    200,
+  );
   const p = await post(`/api/v1/extractions/${attachment}/confirm`, {
     ...purchase,
     date: "2020-01-01",
-    items: [{ name: "Book", minor: "100" }],
+    merchantWebsite: "https://shop.example",
+    currency: "EUR",
+    items: [{ name: "Book", minor: "1245" }],
   });
+  const history = (await app.inject({ url: review, headers })).json().data;
+  assert.deepEqual(
+    history
+      .filter((r: { field: string }) => r.field === "items.0.minor")
+      .map((r: { value: string; status: string }) => [r.value, r.status]),
+    [
+      ["12", "model_candidate"],
+      ["1245", "provisional"],
+      ["1245", "confirmed"],
+    ],
+  );
   const obs = await post(`/api/v1/purchases/${p.json().data.id}/protection`, {
     ...basic,
     observedAt: "2020-01-01T00:00:00Z",

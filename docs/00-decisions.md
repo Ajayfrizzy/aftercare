@@ -50,3 +50,9 @@ Before deploying, confirm Workers Free, an available Cron Trigger and no billing
 Use a locally authenticated Wrangler session and the configuration scripts/wrangler.wake.jsonc. Supply nonsecret runtime bindings through deployment configuration. Use the encrypted secret binding WAKE_TOKEN and the matching AFTERCARE_WAKE_TOKEN on the Sprite; never put their values in configuration files, command arguments or logs. Observe only invocation times and success/failure on Cloudflare. Reconcile against Sprite-side job and audit records.
 
 Sources: https://developers.cloudflare.com/workers/configuration/cron-triggers/, https://developers.cloudflare.com/workers/configuration/secrets/, https://developers.cloudflare.com/workers/platform/limits/ and https://cron-job.org/en/faq/.
+
+### Current operating decision
+
+Keep private Sprite ingress and on-wake catch-up. The earlier public experiment exceeded its exposure limit. Scheduler experiments are suspended. No credential with organization management, exec, filesystem or proxy privileges may be transferred to Cloudflare. The architecture still requires independently triggered due checks. Restart recovery and SQLite deduplication have evidence, while private unattended wake has none.
+
+Prepared question for Fly engineering (unsent, official response pending): Does Fly support a revocable credential restricted to waking one private Sprite by HTTPS, with no exec, filesystem, proxy or management permissions?
