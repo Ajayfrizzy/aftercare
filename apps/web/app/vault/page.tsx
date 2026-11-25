@@ -157,8 +157,19 @@ export default function Vault() {
           archived: false,
         },
       );
+      setRecords((current) => [
+        {
+          ...saved,
+          sources: artifact ? [artifact] : (selected?.sources ?? []),
+        },
+        ...current.filter((row) => row.id !== saved.id),
+      ]);
+      setSearch("");
+      setStore("");
+      setAfter("");
+      setRisk("");
+      setKindFilter("");
       setArtifact("");
-      await refresh();
       setSelected(null);
       setEdit(false);
       setSavedId(saved.id);
@@ -250,7 +261,7 @@ export default function Vault() {
             ? "Create your journal"
             : "Welcome back"}
       </h1>
-      <output>{message}</output>
+      {!(edit && user) && <output>{message}</output>}
       {!user ? (
         <form onSubmit={submit}>
           <label>
@@ -493,6 +504,7 @@ export default function Vault() {
                       : [{ name: "", minor: "" }])
                   }
                 />
+                <output>{message}</output>
                 <button type="submit" disabled={saving}>
                   {saving ? "Saving…" : "Save purchase"}
                 </button>

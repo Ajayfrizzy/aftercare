@@ -226,6 +226,8 @@ section {
   padding: 1rem 1.5rem;
 }
 .workspace main {
+  margin: 0;
+  align-self: stretch;
   width: auto;
   min-width: 0;
   padding: clamp(1.25rem, 4vw, 4rem);
@@ -424,4 +426,19 @@ section {
   color: var(--ink);
   border: 1px solid var(--accent);
   border-radius: 12px;
+}
+
+.vault > a + a {
+  margin-inline-start: 0.75rem;
+}
+.journal-find ul {
+  padding: 0;
+  list-style: none;
+}
+.journal-find li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-block: 0.75rem;
 }

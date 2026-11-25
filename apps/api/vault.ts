@@ -59,6 +59,7 @@ export async function vaultRoutes(
   for (const method of ["POST", "PATCH"] as const) {
     app.route<{ Params: { id?: string } }>({
       method,
+      bodyLimit: 256 * 1024,
       url: method === "POST" ? "/" : "/:id",
       handler: async (req, reply) => {
         const parsed = purchaseInput.safeParse(req.body);

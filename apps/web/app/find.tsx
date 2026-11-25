@@ -47,8 +47,7 @@ export default function Find() {
     }
   }
   return (
-    <details className="journal-find">
-      <summary>Search and notifications</summary>
+    <section className="journal-find">
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -113,6 +112,6 @@ export default function Find() {
           </li>
         ))}
       </ul>
-    </details>
+    </section>
   );
 }

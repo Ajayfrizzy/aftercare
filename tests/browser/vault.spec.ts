@@ -171,6 +171,9 @@ for (const width of [390, 1440]) {
     });
     await page.getByRole("button", { name: "Save purchase" }).click();
     await page.getByRole("button", { name: "Edit Paper shop" }).click();
+    await page
+      .getByLabel("Notes", { exact: true })
+      .fill("Purchase detail ".repeat(100));
     await page.getByLabel("Item", { exact: true }).nth(1).fill("Blue pen");
     await page.getByRole("button", { name: "Save purchase" }).click();
     await expect(page.getByText("Saved to your vault")).toBeVisible();
@@ -468,7 +471,7 @@ test("journal search and notifications open the owned purchase and retain read s
   });
   await page.reload();
   const open = () =>
-    page.getByText("Search and notifications", { exact: true }).click();
+    page.getByRole("link", { name: "Search & notifications" }).click();
   await open();
   const field = page.getByLabel("Search your journal");
   await field.fill("nonexistent title");
@@ -496,7 +499,7 @@ test("delayed search cannot replace a newer failure or recovery", async ({
 }) => {
   await page.goto("/vault");
   await page
-    .getByText("Search and notifications", { exact: true })
+    .getByRole("link", { name: "Search & notifications" })
     .press("Enter");
   let release!: () => void;
   const gate = new Promise<void>((resolve) => {

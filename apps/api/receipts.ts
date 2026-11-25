@@ -240,6 +240,7 @@ export async function receiptRoutes(
   );
   app.post<{ Params: { id: string } }>(
     "/extractions/:id/confirm",
+    { bodyLimit: 256 * 1024 },
     async (req, reply) => {
       const owner = sessionOwner(db, req);
       if (
