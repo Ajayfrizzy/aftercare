@@ -465,3 +465,47 @@ section {
   grid-row: 1;
   grid-column: 1;
 }
+
+.protection-filter {
+  inline-size: min(100%, 25rem);
+}
+.protection-filter select {
+  inline-size: 100%;
+  min-block-size: 3rem;
+  padding: 0.65rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 60%, var(--canvas));
+  border-radius: 0.75rem;
+  background-color: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+.protection-filter select:hover {
+  border-color: var(--accent);
+}
+@supports (appearance: base-select) {
+  .protection-filter select,
+  .protection-filter select::picker(select) {
+    appearance: base-select;
+  }
+  .protection-filter select::picker-icon {
+    color: var(--accent);
+  }
+  .protection-filter select::picker(select) {
+    margin-block-start: 0.25rem;
+    padding: 0.3rem;
+    border: 1px solid var(--accent);
+    border-radius: 0.75rem;
+    background: var(--canvas);
+    color: var(--ink);
+  }
+  .protection-filter option {
+    min-block-size: 2.75rem;
+    padding-inline: 0.75rem;
+    border-radius: 0.5rem;
+  }
+  .protection-filter option:is(:checked, :hover, :focus-visible) {
+    color: var(--accent);
+    background: var(--surface);
+  }
+}

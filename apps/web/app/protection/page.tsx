@@ -52,6 +52,7 @@ export default function ProtectionCenter() {
       <output>{status}</output>
       {entries.length > 0 && (
         <GuidedField
+          className="protection-filter"
           label="View protection type"
           hint="Choose a category to narrow the list of recorded checks."
         >
