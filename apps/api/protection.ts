@@ -53,7 +53,12 @@ export async function protectionRoutes(
       try {
         const results =
           input.kind === "recall"
-            ? await recallNotices(input.brand, input.model, providers.transport)
+            ? await recallNotices(
+                input.brand,
+                input.model,
+                providers.transport,
+                input.serial,
+              )
             : await researchPolicy(
                 providers.gateway,
                 input.domain,

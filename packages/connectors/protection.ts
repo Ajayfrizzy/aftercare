@@ -61,9 +61,11 @@ export async function recallNotices(
   brand: string,
   model: string,
   transport: typeof fetch,
+  serial = "",
 ) {
   type Notice = {
     URL: string;
+    Description?: string;
     Title: string;
     RecallDate: string;
     Products: { Model?: string; Name?: string }[];
@@ -89,6 +91,42 @@ export async function recallNotices(
         source.pathname.toLowerCase().startsWith("/recalls/")
       );
     });
+  }
+  if (norm(brand) === "wybot" && /^(WY3312MAX|WY100MAX)$/i.test(model.trim())) {
+    const notices = await lookup("RecallNumber", "26372");
+    return notices
+      .filter(
+        (r) =>
+          r.URL ===
+          "https://www.cpsc.gov/Recalls/2026/Wybotics-Recalls-Robotic-Pool-Vacuums-Due-to-Burn-and-Fire-Hazards",
+      )
+      .map((r) => {
+        const batch = /^WY100M(\d{6})\d{4}$/.exec(serial.trim().toUpperCase());
+        const description = r.Description ?? "";
+        const ranges = [...description.matchAll(/WY100M(\d{6})XXXX/g)].map(
+          (m) => m[1],
+        );
+        const verifiedTable =
+          description.includes("Only products with serial numbers listed") &&
+          description.includes("WY3312MAX and WY100MAX") &&
+          ranges.join(",") === "230117,230127,230130,230318";
+        const identity = !verifiedTable
+          ? "Insufficient evidence. Review the current official table."
+          : !serial.trim()
+            ? "Candidate product. Supply the serial inside the top cover."
+            : !batch
+              ? "Insufficient evidence. Check the serial format on the unit."
+              : ranges.includes(batch[1]!)
+                ? "Affected by recall 26-372 based on the supplied model and serial batch."
+                : "Excluded from recall 26-372 based on the supplied serial batch.";
+        return {
+          source: r.URL,
+          publishedAt: r.RecallDate,
+          title: r.Title,
+          retrievedAt: new Date().toISOString(),
+          identity,
+        };
+      });
   }
   const exact = (await lookup("ProductModel", model)).filter(
     (r) =>

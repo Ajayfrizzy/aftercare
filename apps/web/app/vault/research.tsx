@@ -90,6 +90,10 @@ export function Research({ purchaseId }: { purchaseId: string }) {
               Product model
               <input name="model" required />
             </label>
+            <label>
+              Unit serial (optional)
+              <input name="serial" maxLength={100} />
+            </label>
           </>
         ) : (
           <label>

@@ -161,6 +161,7 @@ export const researchRequest = z.discriminatedUnion("kind", [
     region: z.literal("US"),
     brand: z.string().trim().min(1).max(200),
     model: z.string().trim().min(1).max(200),
+    serial: z.string().trim().max(100).optional(),
   }),
 ]);
 export const recoveryDraft = z.strictObject({
