@@ -63,3 +63,27 @@ test("cron rejects redirects, failed TLS, error statuses and unexpected origins"
       /Invalid wake configuration/,
     );
 });
+test("expired delivery exits before binding validation and network access", async () => {
+  await signalWake(
+    start,
+    { ...settings, SPRITE_ORIGIN: "", WAKE_TOKEN: "", WINDOW_START: "" },
+    async () => assert.fail("unexpected fetch"),
+    start + 1800000,
+  );
+});
+test("active scheduled handler fails closed with missing bindings", async () => {
+  const { default: worker } = await import("../scripts/cloudflare-wake.ts");
+  const now = Date.now();
+  await assert.rejects(
+    worker.scheduled(
+      { scheduledTime: now },
+      {
+        ...settings,
+        WINDOW_START: new Date(now - 1000).toISOString(),
+        WINDOW_END: new Date(now + 10000).toISOString(),
+        WAKE_TOKEN: "",
+      },
+    ),
+    /Invalid wake configuration/,
+  );
+});
