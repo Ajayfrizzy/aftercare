@@ -1,4 +1,7 @@
-import { extractionAvailability } from "../../packages/connectors/extraction.ts";
+import {
+  extractionAvailability,
+  receiptCandidates,
+} from "../../packages/connectors/extraction.ts";
 import multipart from "@fastify/multipart";
 import { randomUUID, createHash } from "node:crypto";
 import {
@@ -85,6 +88,47 @@ export async function receiptRoutes(
     } catch (error) {
       unlinkSync(join(root, id));
       throw error;
+    }
+    const consent = () =>
+      Boolean(
+        JSON.parse(
+          String(
+            db.prepare("SELECT preferences FROM users WHERE id=?").get(owner)
+              ?.preferences ?? "{}",
+          ),
+        ).extractionConsent,
+      );
+    if (mime === "text/plain" && bytes.length <= 8000 && consent()) {
+      const candidates = await receiptCandidates(bytes.toString("utf8")).catch(
+        () => [],
+      );
+      if (candidates.length && consent()) {
+        db.exec("BEGIN IMMEDIATE");
+        try {
+          const save = db.prepare(
+            "INSERT INTO review_fields(owner,artifact,field,value,source,status) SELECT ?,?,?,?,?,'model_candidate' WHERE EXISTS(SELECT 1 FROM artifacts WHERE user_id=? AND id=?) AND NOT EXISTS(SELECT 1 FROM review_fields WHERE owner=? AND artifact=? AND field=?) AND NOT EXISTS(SELECT 1 FROM receipt_evidence WHERE user_id=? AND artifact_id=?)",
+          );
+          for (const c of candidates)
+            save.run(
+              owner,
+              id,
+              c.field,
+              c.value,
+              c.source,
+              owner,
+              id,
+              owner,
+              id,
+              c.field,
+              owner,
+              id,
+            );
+          db.exec("COMMIT");
+        } catch (error) {
+          db.exec("ROLLBACK");
+          throw error;
+        }
+      }
     }
     return reply.code(201).send({ data: { id, mime, duplicate: false } });
   });

@@ -158,6 +158,7 @@ export default function Vault() {
         field: string;
         value: string;
         status: string;
+        source: string;
       }[] = await request(`artifacts/${data.id}/review`);
       if (history.some((row) => row.status === "confirmed")) {
         setMessage("This receipt has already been confirmed.");
@@ -170,7 +171,14 @@ export default function Vault() {
       setSelected(null);
       setEdit(true);
       setMessage(
-        "Review your receipt and enter the purchase details. AI extraction is unavailable.",
+        history.some((r) => r.status === "model_candidate")
+          ? "Unconfirmed predictions: " +
+              history
+                .filter((r) => r.status === "model_candidate")
+                .map((r) => r.field + " (" + r.source + ")")
+                .join(", ") +
+              ". Verify each value against the receipt."
+          : "Review the receipt and enter the purchase details manually.",
       );
     } catch (error) {
       setMessage((error as Error).message);
