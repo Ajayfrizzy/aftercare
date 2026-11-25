@@ -174,6 +174,7 @@ for (const width of [390, 1440]) {
     await page
       .getByLabel("Notes", { exact: true })
       .fill("Purchase detail ".repeat(100));
+    await page.getByLabel("Merchant website (optional)").fill("github.com");
     await page.getByLabel("Item", { exact: true }).nth(1).fill("Blue pen");
     await page.getByRole("button", { name: "Save purchase" }).click();
     await expect(page.getByText("Saved to your vault")).toBeVisible();

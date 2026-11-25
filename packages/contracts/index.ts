@@ -19,16 +19,26 @@ export const purchaseInput = z.strictObject({
   merchant: z.string().trim().min(1).max(200),
   date: z.iso.date(),
   merchantWebsite: z
-    .union([
-      z.literal(""),
-      z
-        .url({ protocol: /^https?$/ })
-        .max(2048)
-        .refine((v) => {
-          const u = new URL(v);
-          return !u.username && !u.password;
-        }),
-    ])
+    .string()
+    .trim()
+    .transform((value) =>
+      /^(?:[a-z0-9-]+\.)+[a-z]{2,}(?:[/?#]|$)/i.test(value)
+        ? "https://" + value
+        : value,
+    )
+    .pipe(
+      z.union([
+        z.literal(""),
+        z
+          .url({ protocol: /^https?$/ })
+          .max(2048)
+          .refine((v) => {
+            if (!URL.canParse(v)) return false;
+            const u = new URL(v);
+            return !u.username && !u.password;
+          }),
+      ]),
+    )
     .optional(),
   orderNumber: z.string().trim().max(128).default(""),
   currency: z.string().regex(/^[A-Z]{3}$/),
