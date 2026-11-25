@@ -1,5 +1,6 @@
 "use client";
 import { Protection } from "./protection";
+import { PurchaseField } from "./purchase-field";
 import Items from "./items";
 import Preferences from "./preferences";
 import { useState, useEffect, type FormEvent } from "react";
@@ -444,38 +445,49 @@ export default function Vault() {
                   ["orderNumber", "Order number", selected?.orderNumber],
                   ["currency", "Currency", selected?.currency ?? "USD"],
                   ["notes", "Notes", selected?.notes],
-                ].map(([key, label, value]) => (
-                  <label key={key}>
-                    <span id={`purchase-field-${key}`}>{label}</span>
-                    <input
-                      aria-labelledby={`purchase-field-${key}`}
-                      aria-describedby={artifact ? "review-" + key : undefined}
+                ].map(([key, label, value]) =>
+                  key === "merchantWebsite" || key === "currency" ? (
+                    <PurchaseField
+                      key={key}
                       name={key}
-                      type={key === "date" ? "date" : "text"}
-                      required={
-                        !["notes", "orderNumber", "merchantWebsite"].includes(
-                          key ?? "",
-                        )
-                      }
-                      defaultValue={
-                        (artifact && key ? draft[key] : undefined) ?? value
-                      }
+                      label={label!}
+                      initial={(artifact ? draft[key] : undefined) ?? value}
                     />
-                    {artifact && (
-                      <small id={"review-" + key}>
-                        {key === "date"
-                          ? "Use the purchase date printed on the receipt."
-                          : key === "merchant"
-                            ? "Check the seller name against the original receipt."
-                            : key === "currency"
-                              ? "Verify the currency code. A dollar sign alone can be ambiguous."
-                              : key === "orderNumber"
-                                ? "Leave blank if the source gives no order number."
-                                : "Record anything unclear in the source here."}
-                      </small>
-                    )}
-                  </label>
-                ))}
+                  ) : (
+                    <label key={key}>
+                      <span id={`purchase-field-${key}`}>{label}</span>
+                      <input
+                        aria-labelledby={`purchase-field-${key}`}
+                        aria-describedby={
+                          artifact ? "review-" + key : undefined
+                        }
+                        name={key}
+                        type={key === "date" ? "date" : "text"}
+                        required={
+                          !["notes", "orderNumber", "merchantWebsite"].includes(
+                            key ?? "",
+                          )
+                        }
+                        defaultValue={
+                          (artifact && key ? draft[key] : undefined) ?? value
+                        }
+                      />
+                      {artifact && (
+                        <small id={"review-" + key}>
+                          {key === "date"
+                            ? "Use the purchase date printed on the receipt."
+                            : key === "merchant"
+                              ? "Check the seller name against the original receipt."
+                              : key === "currency"
+                                ? "Verify the currency code. A dollar sign alone can be ambiguous."
+                                : key === "orderNumber"
+                                  ? "Leave blank if the source gives no order number."
+                                  : "Record anything unclear in the source here."}
+                        </small>
+                      )}
+                    </label>
+                  ),
+                )}
                 <label>
                   Tags (comma separated)
                   <input

@@ -442,3 +442,10 @@ section {
   gap: 0.75rem;
   margin-block: 0.75rem;
 }
+
+.vault input[aria-invalid="true"] {
+  border: 2px solid light-dark(#a33126, #ffab9d);
+}
+.vault input[aria-invalid="true"] + small {
+  color: light-dark(#92291e, #ffb8ac);
+}
