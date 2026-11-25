@@ -45,6 +45,7 @@ for (const width of [390, 1440]) {
     await page.getByLabel("Purchase date").fill("2026-11-23");
     await page.getByLabel("Item", { exact: true }).fill("Field journal");
     await page.getByLabel("Price in minor units").fill("1400");
+    await page.getByLabel("Tags (comma separated)").fill("gift");
     await reviewLayouts(page, "review", width);
     await page.screenshot({
       path: `test-results/design/m1-review-${width}.png`,
@@ -59,6 +60,46 @@ for (const width of [390, 1440]) {
       path: `test-results/design/m1-vault-${width}.png`,
       fullPage: true,
     });
+    await page.getByRole("button", { name: "Edit Example books" }).click();
+    await expect(page.getByLabel("Tags (comma separated)")).toHaveValue("gift");
+    await page.getByLabel("Tags (comma separated)").fill("stationery");
+    await page.getByRole("button", { name: "Save purchase" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Example books" }),
+    ).toBeVisible();
+    await page.reload();
+    const search = page.getByLabel("Search purchases");
+    await search.fill("gift");
+    await expect(
+      page.getByText("No purchases match your search."),
+    ).toBeVisible();
+    await search.fill("stationery");
+    await page.getByText("Purchase details", { exact: true }).click();
+    const attach = page.getByLabel("Add original receipt");
+    await attach.setInputFiles({
+      name: "bad.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from("incorrect type"),
+    });
+    await expect(page.getByText(/Upload failed/)).toBeVisible();
+    const extra = {
+      name: "second.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("Supplemental original"),
+    };
+    await attach.setInputFiles(extra);
+    await expect(page.getByText("Original receipt added.")).toBeVisible();
+    await attach.setInputFiles(extra);
+    await expect(
+      page.getByText("Receipt already linked to this purchase."),
+    ).toBeVisible();
+    await page.reload();
+    await page.getByText("Purchase details", { exact: true }).click();
+    const sources = page.getByRole("link", { name: "View source receipt" });
+    await expect(sources).toHaveCount(2);
+    const privatePaths = await sources.evaluateAll((links) =>
+      links.map((link) => link.getAttribute("href")!),
+    );
     const [{ id }] = await page.evaluate(
       async () => (await (await fetch("/api/v1/purchases")).json()).data,
     );
@@ -85,6 +126,10 @@ for (const width of [390, 1440]) {
       { id, width },
     );
     expect(statuses).toEqual([201, 404, 404]);
+    for (const path of privatePaths)
+      expect(
+        await second.evaluate(async (url) => (await fetch(url)).status, path),
+      ).toBe(404);
     await foreign.close();
   });
 }
@@ -275,7 +320,13 @@ test("review, approve and download an evidence-linked recovery draft", async ({
     .click();
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download approved claim" }).click();
-  expect((await download).suggestedFilename()).toBe("aftercare-claim.txt");
+  const txt = await download;
+  const { readFile } = await import("node:fs/promises");
+  const letter = await page.locator(".letter").textContent();
+  expect(await readFile((await txt.path())!, "utf8")).toBe(
+    "Recipient: Shop support\n\n" + letter,
+  );
+  expect(txt.suggestedFilename()).toBe("aftercare-claim.txt");
   await page.getByRole("link", { name: "Agent activity" }).click();
   await expect(page).toHaveURL(/\/activity$/);
   await expect(page.getByText(/exported not sent/)).toBeVisible();
@@ -543,4 +594,21 @@ test("outstanding refund commitment across sizes and themes", async ({
         fullPage: true,
       });
     }
+  await page.goto("/vault");
+  await page.getByText("Purchase protection", { exact: true }).click();
+  await page.getByLabel("New refund status").selectOption("processing");
+  await page
+    .getByLabel("Update evidence URL")
+    .fill("https://example.org/processing");
+  await page.getByLabel("What changed?").fill("Merchant confirms processing");
+  await page.getByRole("button", { name: "Update refund" }).click();
+  await expect(page.getByText("Refund updated.")).toBeVisible();
+  await page.reload();
+  await page.getByText("Purchase protection", { exact: true }).click();
+  await expect(page.getByText("Refund status · processing")).toBeVisible();
+  await page.getByText("Refund revision history").click();
+  await expect(
+    page.getByRole("link", { name: "Prior refund source" }),
+  ).toHaveAttribute("href", "https://example.org/promise");
+  await expect(page.getByText("Refund promised for journal")).toBeVisible();
 });

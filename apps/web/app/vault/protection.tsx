@@ -234,6 +234,27 @@ export function Protection({
               </button>
             </form>
           )}
+          {r.evidence.kind === "refund" &&
+            !!r.evidence.refundHistory?.length && (
+              <details>
+                <summary>Refund revision history</summary>
+                <ol>
+                  {r.evidence.refundHistory.map((entry, index) => (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: Append-only refund revisions retain their ordinal.
+                    <li key={entry.observedAt + index}>
+                      <strong>{entry.status.replaceAll("_", " ")}</strong> ·{" "}
+                      <time dateTime={entry.observedAt}>
+                        {new Date(entry.observedAt).toLocaleString()}
+                      </time>
+                      <p>{entry.excerpt}</p>
+                      <a href={entry.source} rel="noreferrer" target="_blank">
+                        Prior refund source
+                      </a>
+                    </li>
+                  ))}
+                </ol>
+              </details>
+            )}
           {r.caseId && (
             <a href={"/cases#case-" + r.caseId}>Open recovery case</a>
           )}

@@ -42,3 +42,7 @@ No environment variables are required with the launcher. It sets APP_BASE_URL an
 For separate terminals, start the API from the root with `APP_BASE_URL=http://127.0.0.1:3000 pnpm --filter @aftercare/api start` after exporting DEMO_SECRET. Start the frontend with `pnpm --filter @aftercare/web dev --webpack --hostname 127.0.0.1 --port 3000`. Keep both ports free.
 
 The permanent project directory is ~/Desktop/aftercare. The full application runs with pnpm dev. For accounts created in the former M2 worktree, stop the default launcher and run `pnpm dev --m2-data` and open http://127.0.0.1:3120/vault. Both profiles use the same application code and keep their existing local accounts.
+
+## Owner acceptance candidate
+
+Mobile and desktop browser checks cover tag edits, search after reload, additional original receipts, duplicate handling and private access. Refund revision history shows prior states and citations. TXT, JSON, PDF and unsent EML exports were inspected locally. Comparable-price rules have fixture coverage. A live comparable offer, trusted settlement confirmation and independent private scheduled wake remain open. See the [final verification matrix](docs/evidence/M5.md).

@@ -513,7 +513,7 @@ test("expired recovery lease resumes and an approved export is single-use", asyn
   ).json().data;
   const old = (await post(`${base}/approve`, draft)).json().data;
   const payload = {
-    recipient: "Shop",
+    recipient: "support@example.invalid",
     body: "Review PRIVATE and PRIVATE.",
     redact: "PRIVATE",
   };
@@ -616,6 +616,13 @@ test("expired recovery lease resumes and an approved export is single-use", asyn
     Buffer.from(exported.attachments[0].base64, "base64").toString(),
     original,
   );
+  assert.equal(exported.recipient, payload.recipient);
+  assert.equal(exported.attachments.length, 1);
+  assert.equal(exported.attachments[0].id, attachment);
+  assert.equal(
+    exported.attachments[0].sha,
+    createHash("sha256").update(original).digest("hex"),
+  );
   assert.equal(exported.body, "Review [redacted] and [redacted].");
   assert.equal(exported.status, "exported_not_sent");
   assert.equal((await post(`${base}/export`, token)).statusCode, 409);
@@ -679,6 +686,25 @@ test("expired recovery lease resumes and an approved export is single-use", asyn
         decodePDFRawStream,
       } = await import("pdf-lib");
       const pdf = await PDFDocument.load(response.rawPayload);
+      if (process.platform === "darwin") {
+        const { execFileSync } = await import("node:child_process");
+        const file = join(dir, "approved.pdf");
+        writeFileSync(file, response.rawPayload);
+        const text = execFileSync(
+          "osascript",
+          [
+            "-l",
+            "JavaScript",
+            "-e",
+            "function run(args){ObjC.import('PDFKit');return ObjC.unwrap($.PDFDocument.alloc.initWithURL($.NSURL.fileURLWithPath(args[0])).string)}",
+            file,
+          ],
+          { encoding: "utf8" },
+        );
+        assert.ok(text.includes(payload.recipient));
+        assert.ok(text.includes(exported.body));
+        assert.ok(!text.includes("PRIVATE"));
+      }
       assert.ok(pdf.getPageCount() > 0);
       const names = pdf.catalog
         .lookup(PDFName.of("Names"), PDFDict)
@@ -700,21 +726,59 @@ test("expired recovery lease resumes and an approved export is single-use", asyn
           "python3",
           [
             "-c",
-            "import email,email.policy,sys,json; m=email.message_from_bytes(sys.stdin.buffer.read(),policy=email.policy.default); print(json.dumps([m.get_body().get_content(),next(m.iter_attachments()).get_payload(decode=True).decode()]))",
+            "import email,email.policy,sys,json; m=email.message_from_bytes(sys.stdin.buffer.read(),policy=email.policy.default); print(json.dumps([m.get_body().get_content(),next(m.iter_attachments()).get_payload(decode=True).decode(),str(m['To']),m['X-Unsent'],len(list(m.iter_attachments()))]))",
           ],
           { input: response.rawPayload, encoding: "utf8" },
         ),
       );
       assert.ok(parsed[0].includes(exported.body));
       assert.equal(parsed[1], original);
+      assert.deepEqual(parsed.slice(2), [payload.recipient, "1", 1]);
     }
   }
+  const refunded = await post(
+    `/api/v1/purchases/${p.json().data.id}/protection`,
+    {
+      ...basic,
+      kind: "refund",
+      currency: "EUR",
+      amountMinor: "1245",
+      received: false,
+      dueAt: "2020-01-02T00:00:00Z",
+    },
+  );
+  const refundId = refunded.json().data.id;
+  assert.ok(checkDue(db, later));
+  const refundBase = "/api/v1/cases/" + refundId;
+  const refundDraft = (await post(refundBase + "/draft", payload)).json().data;
+  const permission = (await post(refundBase + "/approve", refundDraft)).json()
+    .data;
+  assert.ok(permission.approvalId);
+  assert.equal(
+    (
+      await post(
+        `/api/v1/purchases/${p.json().data.id}/protection/${refundId}/refund`,
+        {
+          status: "processing",
+          revision: 0,
+          source: basic.source,
+          excerpt: "Processing update",
+        },
+      )
+    ).statusCode,
+    200,
+  );
+  assert.equal(
+    (await post(refundBase + "/export", permission)).statusCode,
+    409,
+  );
+  assert.ok(checkDue(db, later));
   db.prepare("UPDATE protection_observations SET record='{}' WHERE id=?").run(
     obs.json().data.id,
   );
-  db.prepare("UPDATE recovery_jobs SET due_at=?,completed_at=NULL").run(
-    new Date(now).toISOString(),
-  );
+  db.prepare(
+    "UPDATE recovery_jobs SET due_at=?,completed_at=NULL WHERE observation_id=?",
+  ).run(new Date(now).toISOString(), obs.json().data.id);
   for (let i = 0; i < 5; i++)
     assert.throws(() => checkDue(db, later + i * 90000));
   assert.equal(checkDue(db, later + 999999), false);
