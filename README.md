@@ -6,6 +6,7 @@ A receipt usually lands in one inbox, a return policy lives on another site, and
 
 1. Register, choose regional settings and decide whether to allow receipt extraction and external research.
 2. Import a receipt or enter a purchase. Consented plain-text uploads can produce editable Workers AI candidates. During a real upload the model read EUR 12.45 as 12 minor units. The owner corrected it to 1245. The journal retained the prediction and the correction. Images and PDFs currently use source preview and manual review.
+   Tag purchases and attach additional original receipts from purchase details. Refund revisions retain the previous source and recorded state. Owner confirmation is separate from trusted settlement evidence.
 3. Track return and warranty windows, comparable prices, recalls, deliveries and refund promises. Review source URLs, observation times and uncertainty before acting. A merchant promise alone cannot establish that money reached your account.
 4. Review an evidence-linked recovery case. Select receipts, inspect the recipient and letter redactions, then authorize a specific draft. Receipt attachments retain their original bytes. Text, JSON, PDF and email-draft exports consume a single approval and record `exported_not_sent`.
 5. Inspect follow-ups and audit history in the activity view. Overdue work catches up after wake. Independent scheduled wake of a cold private Sprite remains a mandatory release blocker.

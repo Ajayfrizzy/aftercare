@@ -41,6 +41,7 @@ export const purchaseInput = z.strictObject({
     )
     .min(1)
     .max(100),
+  tags: z.array(z.string().trim().min(1).max(48)).max(32).optional(),
   notes: z.string().max(4000).default(""),
   archived: z.boolean().default(false),
 });
@@ -135,6 +136,26 @@ export const observation = z.discriminatedUnion("kind", [
   evidence.extend({
     kind: z.literal("refund"),
     dueAt: instant,
+    refundHistory: z
+      .array(
+        z.object({
+          status: z.string(),
+          source: z.string(),
+          excerpt: z.string(),
+          observedAt: z.string(),
+        }),
+      )
+      .optional(),
+    refundStatus: z
+      .enum([
+        "promised",
+        "processing",
+        "disputed",
+        "unknown",
+        "user_confirmed_received",
+        "evidence_confirmed_received",
+      ])
+      .optional(),
     amountMinor: minor,
     currency: z.string().regex(/^[A-Z]{3}$/),
     received: z.boolean(),
@@ -159,6 +180,18 @@ export const observation = z.discriminatedUnion("kind", [
   }),
 ]);
 export type Observation = z.infer<typeof observation>;
+export const refundChange = z.strictObject({
+  revision: z.number().int().nonnegative(),
+  status: z.enum([
+    "promised",
+    "processing",
+    "disputed",
+    "unknown",
+    "user_confirmed_received",
+  ]),
+  source: z.url({ protocol: /^https$/ }).max(2048),
+  excerpt: z.string().trim().min(1).max(1500),
+});
 export const researchRequest = z.discriminatedUnion("kind", [
   z.strictObject({
     kind: z.enum(["policy", "price"]),

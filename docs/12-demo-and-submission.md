@@ -25,3 +25,5 @@ Do not claim recovered funds that were not actually received; distinguish fake m
 ### Automated demo preparation
 
 Fly requires a short demo and code link. Video is optional and does not affect scoring according to the [official submission instructions](https://fly.io/hacksgiving/). The M5 evidence contains the four-minute synthetic storyboard. The full local browser run generates real frames in test-results/design. Codex can assemble these into a captioned sequence in receipt review, purchase detail, protection, case, approval and activity order. Label the records synthetic, cite prior live provider evidence separately, and end on the private wake limitation. No owner recording or narration is needed. Public posting requires separate owner approval.
+
+The synthetic vault demonstration can now show purchase tags and a second original receipt. In the refund view, show a sourced processing update and its owner-reported status. For an email draft, show the intended recipient and unchanged receipt disclosure before approval. Keep the final status exported_not_sent.

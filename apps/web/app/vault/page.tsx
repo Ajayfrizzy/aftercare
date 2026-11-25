@@ -5,6 +5,7 @@ import Preferences from "./preferences";
 import { useState, useEffect, type FormEvent } from "react";
 
 type Purchase = {
+  tags?: string[];
   sources?: string[];
   id: string;
   merchant: string;
@@ -131,6 +132,14 @@ export default function Vault() {
             name: String(name),
             minor: String(f.getAll("minor")[i]),
           })),
+          tags: [
+            ...new Set(
+              val("tags")
+                .split(",")
+                .map((t) => t.trim())
+                .filter(Boolean),
+            ),
+          ],
           notes: val("notes"),
           archived: false,
         },
@@ -144,7 +153,7 @@ export default function Vault() {
       setMessage((err as Error).message);
     }
   }
-  async function importReceipt(file: File) {
+  async function importReceipt(file: File, purchaseId?: string) {
     const body = new FormData();
     body.append("file", file);
     setUploading(true);
@@ -156,6 +165,20 @@ export default function Vault() {
       if (!response.ok)
         throw new Error("Upload failed. Use a supported file under 10 MB.");
       const { data } = await response.json();
+      if (purchaseId) {
+        const result = await request(
+          `purchases/${purchaseId}/receipts/${data.id}`,
+          "POST",
+          {},
+        );
+        await refresh();
+        setMessage(
+          result.duplicate
+            ? "Receipt already linked to this purchase."
+            : "Original receipt added.",
+        );
+        return;
+      }
       const history: {
         field: string;
         value: string;
@@ -355,6 +378,7 @@ export default function Vault() {
                   if (
                     !artifact ||
                     !(input instanceof HTMLInputElement) ||
+                    input.name === "tags" ||
                     !input.name
                   )
                     return;
@@ -425,6 +449,13 @@ export default function Vault() {
                     )}
                   </label>
                 ))}
+                <label>
+                  Tags (comma separated)
+                  <input
+                    name="tags"
+                    defaultValue={selected?.tags?.join(", ") ?? ""}
+                  />
+                </label>
                 <Items
                   initial={
                     selected?.items ??
@@ -581,6 +612,20 @@ export default function Vault() {
                             <dt>Notes</dt>
                             <dd>{p.notes || "None"}</dd>
                           </dl>
+                          <p>Tags · {p.tags?.join(", ") || "None"}</p>
+                          <label>
+                            Add original receipt
+                            <input
+                              type="file"
+                              disabled={uploading}
+                              accept=".pdf,.png,.jpg,.jpeg,.txt"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                e.target.value = "";
+                                if (file) void importReceipt(file, p.id);
+                              }}
+                            />
+                          </label>
                           {p.sources?.map((id) => (
                             <a
                               key={id}

@@ -132,6 +132,37 @@ export async function receiptRoutes(
     }
     return reply.code(201).send({ data: { id, mime, duplicate: false } });
   });
+  app.post<{ Params: { id: string; artifact: string } }>(
+    "/purchases/:id/receipts/:artifact",
+    async (req, reply) => {
+      const owner = sessionOwner(db, req);
+      const { id, artifact } = req.params;
+      const allowed = db
+        .prepare(
+          "SELECT 1 FROM purchases p JOIN artifacts a ON p.user_id=a.user_id WHERE p.user_id=? AND p.id=? AND a.id=?",
+        )
+        .get(owner, id, artifact);
+      if (!allowed)
+        return reply.code(404).send({ error: { code: "NOT_FOUND" } });
+      const change = db
+        .prepare(
+          "INSERT INTO receipt_evidence(user_id,purchase_id,artifact_id) VALUES(?,?,?) ON CONFLICT(artifact_id) DO NOTHING",
+        )
+        .run(owner, id, artifact);
+      if (
+        !change.changes &&
+        !db
+          .prepare(
+            "SELECT 1 FROM receipt_evidence WHERE user_id=? AND purchase_id=? AND artifact_id=?",
+          )
+          .get(owner, id, artifact)
+      )
+        return reply.code(409).send({ error: { code: "ALREADY_ATTACHED" } });
+      return reply
+        .code(change.changes ? 201 : 200)
+        .send({ data: { attached: true, duplicate: !change.changes } });
+    },
+  );
   app.route<{ Params: { id: string } }>({
     method: ["GET", "POST"],
     url: "/artifacts/:id/review",

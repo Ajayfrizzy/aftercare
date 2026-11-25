@@ -25,7 +25,7 @@ const inputs: Record<Kind, string[]> = {
   ],
   recall: ["brand", "model", "noticeBrand", "noticeModel"],
   delivery: ["dueAt", "received"],
-  refund: ["dueAt", "amountMinor", "received"],
+  refund: ["dueAt", "amountMinor"],
 };
 const labels: Record<string, string> = {
   region: "Country code",
@@ -52,6 +52,7 @@ const labels: Record<string, string> = {
 const dates = new Set(["start", "expiresAt", "dueAt", "observedAt"]);
 const flags = new Set(["received", "sameSku", "sameCondition", "sameSeller"]);
 type Insight = {
+  refundRevision: number;
   caseId?: string;
   id: string;
   reason: string;
@@ -126,6 +127,10 @@ export function Protection({
         };
         input.days = 1;
       }
+      if (kind === "refund") {
+        input.refundStatus = fields.get("refundStatus");
+        input.received = input.refundStatus === "user_confirmed_received";
+      }
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -162,6 +167,73 @@ export function Protection({
           <h3>{names[r.evidence.kind]}</h3>
           <strong>{r.state}</strong>
           <p>{r.reason}</p>
+          {r.evidence.kind === "refund" && (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const form = e.currentTarget;
+                const fields = new FormData(form);
+                setBusy(true);
+                try {
+                  const res = await fetch(endpoint + "/" + r.id + "/refund", {
+                    method: "POST",
+                    headers: { "content-type": "application/json" },
+                    body: JSON.stringify({
+                      ...Object.fromEntries(fields),
+                      revision: r.refundRevision,
+                    }),
+                  });
+                  if (!res.ok)
+                    throw Error(
+                      "Update failed. Reload the evidence before retrying.",
+                    );
+                  await refresh();
+                  onSaved();
+                  form.reset();
+                  setMessage("Refund updated.");
+                } catch (error) {
+                  setMessage((error as Error).message);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              <p>
+                Refund status ·{" "}
+                {(
+                  r.evidence.refundStatus ??
+                  (r.evidence.received ? "user_confirmed_received" : "promised")
+                ).replaceAll("_", " ")}
+              </p>
+              <label>
+                New refund status
+                <select name="status">
+                  {[
+                    "promised",
+                    "processing",
+                    "disputed",
+                    "unknown",
+                    "user_confirmed_received",
+                  ].map((v) => (
+                    <option value={v} key={v}>
+                      {v.replaceAll("_", " ")}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Update evidence URL
+                <input type="url" name="source" required />
+              </label>
+              <label>
+                What changed?
+                <input name="excerpt" required maxLength={1500} />
+              </label>
+              <button type="submit" disabled={busy}>
+                Update refund
+              </button>
+            </form>
+          )}
           {r.caseId && (
             <a href={"/cases#case-" + r.caseId}>Open recovery case</a>
           )}
@@ -242,6 +314,24 @@ export function Protection({
               </>
             )}
           </fieldset>
+        )}
+        {kind === "refund" && (
+          <label>
+            Refund status
+            <select name="refundStatus">
+              {[
+                "promised",
+                "processing",
+                "disputed",
+                "unknown",
+                "user_confirmed_received",
+              ].map((status) => (
+                <option key={status} value={status}>
+                  {status.replaceAll("_", " ")}
+                </option>
+              ))}
+            </select>
+          </label>
         )}
         {["region", "source", "observedAt", "excerpt", ...inputs[kind]]
           .filter((key) => key !== "days" || basis === "elapsed")

@@ -248,7 +248,10 @@ export function CaseWorkspace({
                 ))}
                 <p>
                   Approval permits a single download of this version for ten
-                  minutes.
+                  minutes. You may download a PDF, an email draft, or the
+                  default text letter (JSON package when receipts are selected).
+                  Every format includes the approved letter and all selected
+                  original receipts. Downloading does not send a message.
                 </p>
                 <button
                   type="button"

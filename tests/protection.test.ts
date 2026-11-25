@@ -166,6 +166,49 @@ test("owner evidence is idempotent and foreign records are masked", async (t) =>
   assert.equal((await app.inject(input)).statusCode, 201);
   assert.equal((await app.inject(input)).statusCode, 200);
   assert.equal((await app.inject({ url, headers })).json().data.length, 1);
+  const refund = await app.inject({
+    ...input,
+    payload: {
+      ...basic,
+      kind: "refund",
+      received: false,
+      currency: "USD",
+      amountMinor: "9007199254740993",
+      dueAt: basic.observedAt,
+    },
+  });
+  const update = {
+    ...input,
+    url: url + "/" + refund.json().data.id + "/refund",
+    payload: {
+      revision: 0,
+      status: "processing",
+      source: basic.source,
+      excerpt: "Merchant confirmed processing",
+    },
+  };
+  assert.equal(
+    (await app.inject({ ...update, headers: other })).statusCode,
+    404,
+  );
+  assert.equal(
+    (
+      await app.inject({
+        ...update,
+        payload: { ...update.payload, status: "evidence_confirmed_received" },
+      })
+    ).statusCode,
+    422,
+  );
+  assert.equal((await app.inject(update)).statusCode, 200);
+  assert.equal((await app.inject(update)).statusCode, 409);
+  const rows = (await app.inject({ url, headers })).json().data;
+  const saved = rows.find(
+    (r: { id: string }) => r.id === refund.json().data.id,
+  );
+  assert.equal(saved.evidence.amountMinor, "9007199254740993");
+  assert.equal(saved.evidence.refundHistory[0].status, "promised");
+  assert.equal(saved.evidence.refundStatus, "processing");
 });
 for (const [label, start, calendar, end] of [
   [
@@ -430,6 +473,22 @@ test("expired recovery lease resumes and an approved export is single-use", asyn
       ["1245", "confirmed"],
     ],
   );
+  const attachUrl = "/api/v1/purchases/" + p.json().data.id + "/receipts/";
+  assert.equal((await post(attachUrl + foreignAttachment, {})).statusCode, 404);
+  assert.equal(
+    (await post(attachUrl + attachment, {})).json().data.duplicate,
+    true,
+  );
+  const extra = await app.inject({
+    method: "POST",
+    url: "/api/v1/artifacts/upload",
+    headers: { ...headers, "content-type": "multipart/form-data; boundary=x" },
+    payload:
+      '--x\r\nContent-Disposition: form-data; name="file"; filename="extra.txt"\r\nContent-Type: text/plain\r\n\r\nAdditional original\r\n--x--\r\n',
+  });
+  const extraId = extra.json().data.id;
+  assert.equal((await post(attachUrl + extraId, {})).statusCode, 201);
+  assert.equal((await post(attachUrl + extraId, {})).statusCode, 200);
   const obs = await post(`/api/v1/purchases/${p.json().data.id}/protection`, {
     ...basic,
     observedAt: "2020-01-01T00:00:00Z",

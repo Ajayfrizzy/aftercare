@@ -62,6 +62,32 @@ export function evaluate(
     }
     case "delivery":
     case "refund":
+      if (input.kind === "refund") {
+        if (input.refundStatus === "disputed")
+          return result(
+            "attention",
+            "Refund disputed by the owner. Review supporting evidence.",
+          );
+        if (input.refundStatus === "unknown")
+          return result(
+            "unknown",
+            "Refund status is unknown. Verify with the merchant.",
+          );
+        if (
+          input.refundStatus === "processing" &&
+          Date.parse(input.dueAt) > now
+        )
+          return result(
+            "monitoring",
+            "Merchant reports processing. Receipt is unconfirmed.",
+            input.dueAt,
+          );
+        if (input.refundStatus === "evidence_confirmed_received")
+          return result(
+            "closed",
+            "Receipt confirmed by a trusted settlement source.",
+          );
+      }
       if (input.received)
         return result("closed", "Receipt confirmed by the owner.");
       return Date.parse(input.dueAt) <= now

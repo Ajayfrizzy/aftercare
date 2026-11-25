@@ -6,7 +6,11 @@ import type { FastifyInstance } from "fastify";
 import type { DatabaseSync } from "node:sqlite";
 import { createHash } from "node:crypto";
 import { sessionOwner } from "./identity.ts";
-import { researchRequest, observation } from "@aftercare/contracts";
+import {
+  researchRequest,
+  observation,
+  refundChange,
+} from "@aftercare/contracts";
 import { evaluate } from "../../packages/domain/protection.ts";
 
 export async function protectionRoutes(
@@ -73,6 +77,76 @@ export async function protectionRoutes(
         return reply
           .code(503)
           .send({ error: { code: "PROVIDER_UNAVAILABLE" } });
+      }
+    },
+  );
+  app.post<{ Params: { id: string; obs: string } }>(
+    "/purchases/:id/protection/:obs/refund",
+    async (req, reply) => {
+      const owner = sessionOwner(db, req);
+      if (!owner) return reply.code(401).send();
+      if (
+        req.headers.origin !==
+        (process.env.APP_BASE_URL ?? "http://localhost:3000")
+      )
+        return reply.code(403).send();
+      const parsed = refundChange.safeParse(req.body);
+      if (!parsed.success) return reply.code(422).send();
+      const change = parsed.data;
+      db.exec("BEGIN IMMEDIATE");
+      try {
+        const row = db
+          .prepare(
+            "SELECT record FROM protection_observations WHERE id=? AND purchase_id=? AND user_id=?",
+          )
+          .get(req.params.obs, req.params.id, owner);
+        const record = row ? JSON.parse(String(row.record)) : null;
+        if (record?.kind !== "refund") {
+          db.exec("ROLLBACK");
+          return reply.code(404).send();
+        }
+        const history = record.refundHistory ?? [];
+        if (
+          history.length !== change.revision ||
+          record.refundStatus === "evidence_confirmed_received"
+        ) {
+          db.exec("ROLLBACK");
+          return reply.code(409).send();
+        }
+        history.push({
+          status:
+            record.refundStatus ??
+            (record.received ? "user_confirmed_received" : "promised"),
+          source: record.source,
+          excerpt: record.excerpt,
+          observedAt: record.observedAt,
+        });
+        const now = new Date().toISOString();
+        Object.assign(record, {
+          refundHistory: history,
+          refundStatus: change.status,
+          received: change.status === "user_confirmed_received",
+          source: change.source,
+          excerpt: change.excerpt,
+          observedAt: now,
+        });
+        db.prepare(
+          "UPDATE protection_observations SET record=? WHERE id=?",
+        ).run(JSON.stringify(record), req.params.obs);
+        db.prepare(
+          "UPDATE recovery_jobs SET due_at=?,completed_at=NULL,lease_token=NULL,lease_until=NULL,failed_at=NULL,failures=0 WHERE observation_id=?",
+        ).run(now, req.params.obs);
+        db.prepare(
+          "UPDATE recovery_approvals SET revoked_at=? WHERE case_id=? AND consumed_at IS NULL AND revoked_at IS NULL",
+        ).run(now, req.params.obs);
+        db.prepare(
+          "INSERT INTO audit_events(user_id,action,subject) VALUES(?,?,?)",
+        ).run(owner, "recovery_refund_" + change.status, req.params.obs);
+        db.exec("COMMIT");
+        return { data: { revision: history.length } };
+      } catch (error) {
+        db.exec("ROLLBACK");
+        throw error;
       }
     },
   );
@@ -147,6 +221,17 @@ export async function protectionRoutes(
           return reply
             .code(422)
             .send({ error: { code: "INVALID_OBSERVATION" } });
+        if (
+          input.data.kind === "refund" &&
+          (input.data.refundHistory || input.data.refundStatus) &&
+          (input.data.refundHistory ||
+            input.data.refundStatus === "evidence_confirmed_received" ||
+            input.data.received !==
+              (input.data.refundStatus === "user_confirmed_received"))
+        )
+          return reply
+            .code(422)
+            .send({ error: { code: "INVALID_REFUND_STATUS" } });
         const record = JSON.stringify(input.data),
           id = createHash("sha256")
             .update(JSON.stringify([owner, purchaseId, record]))
@@ -182,6 +267,8 @@ export async function protectionRoutes(
         return {
           id: row.id,
           caseId: row.caseId,
+          refundRevision:
+            JSON.parse(String(row.record)).refundHistory?.length ?? 0,
           evidence,
           ...evaluate(evidence, purchase, now),
         };
