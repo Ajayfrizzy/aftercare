@@ -664,3 +664,38 @@ test("expired recovery lease resumes and an approved export is single-use", asyn
     5,
   );
 });
+
+test("CPSC batch restrictions distinguish affected, candidate, exclusion and insufficient evidence", async () => {
+  const source =
+    "https://www.cpsc.gov/Recalls/2026/Wybotics-Recalls-Robotic-Pool-Vacuums-Due-to-Burn-and-Fire-Hazards";
+  const description =
+    "Only products with serial numbers listed. WY3312MAX and WY100MAX. WY100M230117XXXX; WY100M230127XXXX; WY100M230130XXXX and WY100M230318XXXX";
+  for (const [serial, expected] of [
+    ["WY100M2301170001", "Affected"],
+    ["", "Candidate"],
+    ["WY100M2401010001", "Excluded"],
+    ["WY100M?", "Insufficient"],
+  ]) {
+    const [notice] = await recallNotices(
+      "Wybot",
+      "WY100MAX",
+      async (url) => {
+        assert.equal(
+          new URL(String(url)).searchParams.get("RecallNumber"),
+          "26372",
+        );
+        return Response.json([
+          {
+            URL: source,
+            Description: description,
+            Title: "Synthetic response using published batch restrictions",
+            RecallDate: "2026-04-09",
+          },
+        ]);
+      },
+      serial,
+    );
+    assert.ok(notice.identity.startsWith(expected));
+    assert.equal(notice.source, source);
+  }
+});

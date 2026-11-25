@@ -35,3 +35,11 @@ No automatic upgrade, no paid email vendor, no silently paid model, no payment d
 
 ## Why single Sprite
 One persistent workspace is appropriate for Hacksgiving, not an indefinitely scalable architecture. Concurrent multi-instance deployment needs durable shared DB/storage and a migration plan—deferred via change control.
+
+## Recovering from a historical snapshot
+
+1. Stop API, worker and wake delivery. Isolate the recovery environment from users, providers and outbound actions. Preserve the current database, WAL, receipts and logs separately. Restore into a fresh destination.
+2. Check integrity, foreign keys, schema version, owner links, receipt hashes and audit heads using the M5 offline drill. Record backup time and the last consistent event. A valid historical chain proves internal consistency only.
+3. Reconcile the intervening interval against newer journal copies, export records, approval consumption and revocation, deletion requests, provider acknowledgments and owner evidence. Match case, version, content hash and action identity. A downloaded claim may already have been used elsewhere.
+4. Keep uncertain outcomes quarantined. Retire restored outstanding approvals through the normal revocation path before permitting new actions. Preserve confirmed completions and reconcile pending follow-ups and deletion requests. Require a fresh review and approval for any new consequential action. If evidence is unavailable, maintain isolation and escalate to the owner.
+5. Validate the reconciled copy with exports and workers disabled. Record the reconciliation decisions and obtain owner sign-off before reopening access and resuming eligible jobs. Retain the pre-recovery evidence under the applicable privacy policy.

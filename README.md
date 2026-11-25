@@ -1,32 +1,27 @@
-# Aftercare — Hacksgiving 2026 implementation blueprint
+# Aftercare
 
-**Status:** Proposed architecture baseline for owner sign-off (not deployed or executed). **Date:** 2026-11-23. **Product:** A persistent, personal post-purchase protection and recovery agent. **Competition window:** 2026-11-23 to 2026-11-29, midnight PST deadline. **Hard constraint:** Zero personal out-of-pocket spending.
+A receipt usually lands in one inbox, a return policy lives on another site, and a promised refund can slip past its due date. Aftercare keeps the purchase, the evidence and the next decision together in a private journal. When a delivery is overdue, you can trace the case back to the original receipt, correct the facts, review the proposed letter and export exactly what you approved.
 
-## How to use this bundle
-1. Copy these files to the **root of a new Aftercare repository created during Hacksgiving week**, preserving hidden `.agents/skills` directories. Do **not** use the ZIP as an already implemented application: it is a specification and agent-instruction starter.
-2. Read `AGENTS.md` and `docs/00-decisions.md`. Sign off or amend provisional decisions before code generation.
-3. Execute the read-only M0 discovery gates in `docs/09-milestones.md`, especially Fly billing, Tavily, actual model availability, and wake scheduling. Never commit credentials.
-4. In Codex, ask: **“Read AGENTS.md and the architecture/skills. Implement M0 only, run the M0 acceptance tests, report evidence and blockers; do not proceed to M1 or change architecture.”**
-5. Advance milestones only after reviewing objective evidence. Every change requires `docs/11-change-control.md`.
+## From receipt to recovery
 
-## Document map
-- `docs/00-decisions.md` — locked proposals, pending external validations, non-goals
-- `docs/01-product-requirements.md` — scenarios, user stories, all features, acceptance criteria
-- `docs/02-system-architecture.md` — runtime and integration design
-- `docs/03-data-model.md` — relational entities, constraints, indexing
-- `docs/04-agent-state-machine.md` — durable workflows, scheduling, idempotency
-- `docs/05-api-contracts.md` — HTTP boundaries and contracts
-- `docs/06-security-privacy.md` — threats, approvals, safety, privacy
-- `docs/07-ui-ux-design-system.md` — complete visual identity, IA, screens and states
-- `docs/08-test-strategy.md` — CI, adversarial, live, accessibility, recovery testing
-- `docs/09-milestones.md` — six-day plan with hard gates
-- `docs/10-deployment-operations.md` — Sprite deployment, billing, operational recovery
-- `docs/11-change-control.md` — decision-change record and template
-- `docs/12-demo-and-submission.md` — end-to-end live demo, evidence, submission
-- `docs/13-research-links.md` — official grounding and unverified assumptions
-- `.agents/skills/*/SKILL.md` — reusable, focused Codex workflows
+1. Register, choose regional settings and decide whether to allow receipt extraction and external research.
+2. Import a receipt or enter a purchase. Consented plain-text uploads can produce editable Workers AI candidates. During a real upload the model read EUR 12.45 as 12 minor units. The owner corrected it to 1245. The journal retained the prediction and the correction. Images and PDFs currently use source preview and manual review.
+3. Track return and warranty windows, comparable prices, recalls, deliveries and refund promises. Review source URLs, observation times and uncertainty before acting. A merchant promise alone cannot establish that money reached your account.
+4. Review an evidence-linked recovery case. Select receipts, inspect the recipient and letter redactions, then authorize a specific draft. Receipt attachments retain their original bytes. Text, JSON, PDF and email-draft exports consume a single approval and record `exported_not_sent`.
+5. Inspect follow-ups and audit history in the activity view. Overdue work catches up after wake. Independent scheduled wake of a cold private Sprite remains a mandatory release blocker.
 
-**Evidence labels:** `PROPOSED` means specification only; `VERIFIED` needs an actual command/test artifact; `BLOCKED` means unresolved. Demo fixtures must be plainly marked synthetic.
+## Inside the application
+
+The Next.js frontend talks to an owner-scoped Fastify API. A single writable SQLite database holds purchases, observations, job leases, drafts, approvals and audit events. Private receipt files retain their byte identities. The worker checkpoints progress and uses durable deduplication across restarts. Session checks, origin checks, private receipt routes and content-bound approvals protect the transition from a model suggestion to an owner action.
+
+| Integration | Demonstrated behavior |
+|---|---|
+| Fly.io Sprites | Real API and worker execution, persistent receipt storage and operator-triggered cold recovery |
+| Tavily | Live search and extraction through a default-deny Sprite grant scoped to the two required endpoints. A retrieved policy still requires an applicability judgment. |
+| Workers AI | Genuine consented text receipt upload. Merchant website extraction has local regression coverage only. Manual review remains available when inference fails. |
+| US CPSC | Official notices with retrieval times. Recall 26-372 has model and serial-batch evaluation. Generic product-name matches remain candidates. |
+
+The release evidence includes private Sprite execution, connector observations, corrected inference, single-use export and an offline restore drill using two synthetic owners. The audit chain detects changes relative to its stored head. A database writer can reconstruct it. Independent private wake and final product acceptance remain open. [M5 evidence](docs/evidence/M5.md) · [Architecture decisions](docs/00-decisions.md) · [Product scope](docs/01-product-requirements.md)
 
 ## Run Aftercare locally
 
