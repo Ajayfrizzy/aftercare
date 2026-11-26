@@ -22,7 +22,7 @@ The Next.js frontend talks to an owner-scoped Fastify API. A single writable SQL
 | Workers AI | Genuine consented text receipt upload. Merchant website extraction has local regression coverage only. Manual review remains available when inference fails. |
 | US CPSC | Official notices with retrieval times. Recall 26-372 has model and serial-batch evaluation. Generic product-name matches remain candidates. |
 
-The release evidence includes private Sprite execution, connector observations, corrected inference, single-use export and an offline restore drill using two synthetic owners. The audit chain detects changes relative to its stored head. A database writer can reconstruct it. Independent private wake and final product acceptance remain open. [M5 evidence](docs/evidence/M5.md) · [Architecture decisions](docs/00-decisions.md) · [Product scope](docs/01-product-requirements.md)
+The release evidence includes private Sprite execution, connector observations, corrected inference, single-use export and an offline restore drill using two synthetic owners. The audit chain detects changes relative to its stored head. A database writer can reconstruct it. The owner passed all 24 local acceptance checks. Independent private wake remains open. [M5 evidence](docs/evidence/M5.md) · [Architecture decisions](docs/00-decisions.md) · [Product scope](docs/01-product-requirements.md)
 
 ## Run Aftercare locally
 
@@ -43,9 +43,11 @@ For separate terminals, start the API from the root with `APP_BASE_URL=http://12
 
 The permanent project directory is ~/Desktop/aftercare. The full application runs with pnpm dev. For accounts created in the former M2 worktree, stop the default launcher and run `pnpm dev --m2-data` and open http://127.0.0.1:3120/vault. Both profiles use the same application code and keep their existing local accounts.
 
-## Owner acceptance candidate
+## Local owner acceptance
 
 Mobile and desktop browser checks cover tag edits, search after reload, additional original receipts, duplicate handling and private access. Refund revision history shows prior states and citations. TXT, JSON, PDF and unsent EML exports were inspected locally. Comparable-price rules have fixture coverage. A live comparable offer, trusted settlement confirmation and independent private scheduled wake remain open. See the [final verification matrix](docs/evidence/M5.md).
+
+The accepted runtime baseline is `3128f7d`, with 31 application tests and 20 browser tests passed. [Short illustrated demo](docs/demo.md) · [Release inventory](docs/evidence/M6.md)
 
 ### Try the private acceptance journal
 
