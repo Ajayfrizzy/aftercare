@@ -43,7 +43,11 @@ No environment variables are required with the launcher. It sets APP_BASE_URL an
 
 For separate terminals, start the API from the root with `APP_BASE_URL=http://127.0.0.1:3000 pnpm --filter @aftercare/api start` after exporting DEMO_SECRET. Start the frontend with `pnpm --filter @aftercare/web dev --webpack --hostname 127.0.0.1 --port 3000`. Keep both ports free.
 
-The permanent project directory is ~/Desktop/aftercare. The full application runs with pnpm dev. For accounts created in the former M2 worktree, stop the default launcher and run `pnpm dev --m2-data` and open http://127.0.0.1:3120/vault. Both profiles use the same application code and keep their existing local accounts.
+For an occupied port, follow the [local port troubleshooting steps](docs/10-deployment-operations.md#local-port-troubleshooting).
+
+### Existing owner accounts in the legacy profile
+
+The permanent owner checkout is ~/Desktop/aftercare. The full application runs with pnpm dev. For accounts created in the former M2 worktree, stop the default launcher and run `pnpm dev --m2-data` and open http://127.0.0.1:3120/vault. Both profiles use the same application code and keep their existing local accounts.
 
 ## Local owner acceptance
 
@@ -53,4 +57,8 @@ The accepted runtime baseline is `3128f7d`, with 31 application tests and 20 bro
 
 ### Try the private acceptance journal
 
-Run `pnpm acceptance` to explore a signed-in synthetic purchase, disputed refund and attachment-bearing approval in the real app. The temporary session uses a separate SQLite journal and receipt directory. Follow the [three-step owner walkthrough](docs/owner-acceptance.md) and use Resume to finish.
+Install Google Chrome for this headed Playwright session. Run `pnpm acceptance` to explore a signed-in synthetic purchase, disputed refund and attachment-bearing approval in the real app. The temporary session uses a separate SQLite journal and receipt directory. Follow the [three-step owner walkthrough](docs/owner-acceptance.md) and use Resume to finish.
+
+## Private deployment and evidence
+
+The verified release runs on a private, admin-only Sprite. Judges can follow the film and illustrated walkthrough once the repository is published. The journal API listens on loopback behind the frontend. [System architecture](docs/02-system-architecture.md) · [Private operations and storage](docs/10-deployment-operations.md) · [Milestone evidence index](docs/evidence/README.md)

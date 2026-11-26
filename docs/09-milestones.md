@@ -1,5 +1,11 @@
 # Milestones and six-day execution gates
 
+[203-second film](aftercare-demo.mp4) · [English captions](aftercare-demo.vtt) · [Illustrated walkthrough](demo.md)
+
+Owner-reported acceptance passed 24/24 at application baseline `3128f7d`. Historical verification passed 31/31 application tests, 20/20 browser tests and the production build. The verified private Sprite runs `90f91c9`. Staging received the approved film release `a8be741`. The subsequent local documentation and ignore-rule commit has that release as its parent. Independent scheduled wake of a cold private Sprite remains unverified. [Release evidence](evidence/M6.md)
+
+## Original milestone plan
+
 Status on 2026-11-24: M0-A accepted, M0-B open, M1 formally accepted at 7e88910, M2 authorized for local development.
 **Hacksgiving begins Monday Nov 23; deadline Sunday Nov 29 before midnight PST.** Target implementation complete by Saturday Nov 28 and reserve Sunday as a submission buffer. Milestones are vertical slices, not permission to omit agreed features.
 

@@ -1,40 +1,36 @@
 # Deployment and operations runbook
 
-## Verified documentation facts and constraints
-- Sprite gives persistent filesystem and auto-wake on inbound request; services can restart processes on wake. See Fly docs in `13-research-links.md`.
-- The public URL exposes web/API to internet; must harden before enabling. Default organization-only auth is not a consumer-accessible demo.
-- Idle Sprite may sleep: internal timers don't guarantee true scheduled wake. Need M0-proven external wake mechanism and a cost-safe plan before marketing uninterrupted monitoring.
-- Fly Free pricing page includes a $5 allowance **and** says account may transition to pay-as-you-go at $5. Do not mistake allowance for a hard cost cap; actual signup/card/payment checks are mandatory.
+## Accepted private topology
 
-## Environment and secrets (names only)
-`NODE_ENV`, `APP_BASE_URL`, `SESSION_SECRET`, `SQLITE_PATH`, `PRIVATE_UPLOAD_DIR`, `FILE_UPLOAD_MAX_BYTES`, `INFERENCE_PROVIDER`, `INFERENCE_MODEL`, `AI_CALLS_DAILY_LIMIT`, `RESEARCH_CALLS_DAILY_LIMIT`, `PUBLIC_MONITORING_MODE`, `OUTBOUND_ACTIONS_ENABLED`, `MONITOR_WAKE_TOKEN_HASH`.
-- Connector credentials must live in Fly's connector control plane, **not** `.env`; discover granted connector URL and scopes at runtime. Store opaque connection ID/config only.
-- Never publish actual keys/tokens in docs or demo video.
+Revision `90f91c9` runs on one admin-only Sprite. Only the Next.js frontend has a routed service port behind the private Sprite edge. Next.js forwards API requests to Fastify on loopback. The journal process checks persisted work in SQLite while awake. Keep one writable database and its original receipts together on persistent storage. See the [deployment and restart evidence](evidence/M6.md).
 
-## Deploy order
-1. M0: check plan/card/cost and get explicit owner go/no-go; validate Sprite org, hostname and runtime Node version.
-2. Create a dedicated Sprite scoped to Aftercare; keep URL private through smoke testing.
-3. Install pinned Node/pnpm, build, configure private directories, run migrations with backup, startup health checks.
-4. Register Fastify/web server as a Sprite service using verified version of `sprite-env services create`; bind `0.0.0.0:8080` behind Sprite HTTPS.
-5. Set up Tavily connector at org level and grant only Aftercare Sprite access; live test with redacted logs and bounded API credits.
-6. Configure inference only after verifying actual no-cost allowance and privacy terms.
-7. Configure true timed wake only if separately validated; otherwise show on-wake mode in UI and docs.
-8. Enable public URL only after auth, private docs, CSRF, quota, and threat checks pass.
-9. Run end-to-end demo and record evidence, backup/restore and usage counters.
+The historical public-wake trial used a separate authenticated listener on all interfaces. It is non-production and has no deployment approval. Leave its token unset. Recovery after an operator-triggered wake is verified. Independently scheduled cold-private-Sprite wake remains unverified. [ADR-013](00-decisions.md)
 
-## Monitoring and incident handling
-- Health endpoint: DB open, migrations current, queue lag, connector last success, upload capacity; no secrets/PII.
-- Metrics: pending/due/dead-letter jobs, connector call count/errors, model call count/cost, approval/dispatch failures, backup age, import success.
-- Expose `last_check`, `next_planned`, `mode`, and `wake_delay` to user; alert if stale.
-- Deploy revisions only after consistent backup; verify restore on a **safe isolated copy**. If external actions ran after checkpoint, never blindly restore that old state without reconciliation.
-- On connector failure: surface degraded state, retry bounded, preserve previous evidence with expiry warning.
-- On cost threshold: pause new connector/model work and label degraded; **Fly plan charges may still accrue independently**. Monitor dashboard and stop/disable Sprite as necessary.
+## Runtime configuration
 
-## Zero-cost policy
-No automatic upgrade, no paid email vendor, no silently paid model, no payment details submitted without explicit user approval. If provider demands charge/card or cannot enforce the user's spending constraint, stop deployment and record blocker rather than violate budget.
+| Name | Consumer and purpose | Default or applicability | Handling |
+|---|---|---|---|
+| `APP_BASE_URL` | API origin checks and session configuration | API fallback `http://localhost:3000`. Launcher sets the exact loopback frontend origin for the selected profile. | Configuration |
+| `AFTERCARE_API_PORT` | Fastify listener and Next.js API forwarding | 3101 by default, 3121 for the legacy launcher profile. Keep frontend and API aligned, including at frontend build time. | Configuration |
+| `DEMO_SECRET` | API authentication for the read-only demo journal | Launcher generates a temporary secret. Supply a private value of at least 32 characters for separate-terminal use. | Secret |
+| `SQLITE_PATH` | Journal database | API default `aftercare.sqlite` relative to process working directory. Legacy launcher selects `aftercare-m2.sqlite`. | Private storage path |
+| `PRIVATE_UPLOAD_DIR` | Original receipt storage, access, export and cleanup | API default `private-uploads`. Legacy launcher selects `private-uploads-m2`. | Private storage path |
+| `AFTERCARE_TAVILY_GATEWAY` | API connector adapter | Optional. Supply the official Sprite-scoped Tavily gateway associated with the restricted search/extract grant. | Deployment identifier. Keep provider credentials in the connector control plane. |
+| `AFTERCARE_CF_ACCOUNT` | Receipt extraction adapter | Optional Cloudflare account identifier. Provider extraction requires both Cloudflare settings and consent. | Account identifier |
+| `AFTERCARE_CF_AI_TOKEN` | Receipt extraction adapter | Optional provider credential. Manual review remains available. | Secret |
+| `AFTERCARE_WAKE_TOKEN` | Enables the experimental authenticated wake listener | Unset for the private release. | Secret |
+| `AFTERCARE_WAKE_PORT` | Experimental wake listener only | 8080 when enabled. | Configuration |
+| `HOME`, `NODE_ENV` | Inherited by the local macOS Swift receipt helper | Passed through from the process environment. The helper supplies its own executable search path. | Host environment |
 
-## Why single Sprite
-One persistent workspace is appropriate for Hacksgiving, not an indefinitely scalable architecture. Concurrent multi-instance deployment needs durable shared DB/storage and a migration plan—deferred via change control.
+Use absolute custom storage paths on a persistent volume outside the checkout and web-served directories. Restrict access to the journal service account. Keep the database, its SQLite sidecars and receipt directory private. Back up the consistent database and original bytes together. Custom paths can fall outside repository ignore rules.
+
+## Local port troubleshooting
+
+When the launcher reports `EADDRINUSE`, identify the listener with `lsof -nP -iTCP:3101 -sTCP:LISTEN` and check frontend port 3000 the same way. For the legacy profile check 3121 and 3120. If the intended Aftercare instance is already running, open its vault URL. To restart your own instance, use Ctrl-C in its original terminal, wait for both ports to clear, then run the launcher again. Leave unfamiliar processes alone. Changing a database path or clearing account data cannot resolve a port conflict.
+
+## Release operations
+
+Use the pinned Node and pnpm versions, frozen lockfile and the private service layout recorded in M6. Preserve the original receipt digests and validate them after restore. Check the intended revision, authenticated access, persisted state and worker recovery when a deployment is separately authorized. Keep the Tavily grant restricted to search and extract. Promotional credits and alerts do not impose a hard spending cap.
 
 ## Recovering from a historical snapshot
 

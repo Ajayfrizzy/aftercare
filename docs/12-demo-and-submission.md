@@ -1,6 +1,14 @@
 # Hacksgiving demonstration and submission playbook
 
-## Demo story (3–5 minutes)
+[203-second film](aftercare-demo.mp4) · [English captions](aftercare-demo.vtt) · [Illustrated walkthrough](demo.md)
+
+Owner-reported acceptance passed 24/24 at application baseline `3128f7d`. Historical verification passed 31/31 application tests, 20/20 browser tests and the production build. The verified private Sprite runs `90f91c9`. Staging received the approved film release `a8be741`. The subsequent local documentation and ignore-rule commit has that release as its parent. Independent scheduled wake of a cold private Sprite remains unverified. Judges will use the repository, README and film once publication is approved. The Sprite stays private and admin-only. Use the prepared description and form values in the [release inventory](evidence/M6.md). Publication, social posting and submission each require owner approval.
+
+## Historical preparation notes
+
+The storyboard and proposed operations below document earlier planning. The approved film fulfills the demonstration deliverable.
+
+### Demo story (3–5 minutes)
 1. Open branded Aftercare overview in a real browser; show real Sprite URL and agent status.
 2. Import **synthetic** receipt, parse/verify product and merchant in receipt studio; avoid real personal information.
 3. Show purchase detail: source records, return/warranty deadline, price/recall checks, honest uncertainty.
@@ -11,7 +19,7 @@
 8. Force-stop worker/Sprite, wake it, show retained case, persisted attempt/event history and recovered pending job with no duplicated external action.
 9. End in polished activity timeline and data/privacy settings; demonstrate mobile width, not only desktop.
 
-## Submission assets
+### Submission assets
 - Public repository created and implemented during Hacksgiving week; README with architecture and setup.
 - Accessibly shared deployment and stable demo link.
 - Recorded video with real time sources (and explicit labeling for synthetic scenario).
@@ -19,7 +27,7 @@
 - Short description: `Aftercare is a personal post-purchase protection agent that remembers purchases, verifies policies and safety notices, detects refund/return risks, and guides approved, evidence-backed recovery—persistently on Fly.io Sprites.`
 - Submission form by midnight **PST** Nov 29; target completion Nov 28, send early Nov 29. Confirm actual form timezone/availability.
 
-## Integrity checklist
+### Integrity checklist
 Do not claim recovered funds that were not actually received; distinguish fake merchant dataset from real research; list blocked features honestly; confirm demo links accessible to judges, no leaked credentials, no paywall and no inaccessible private auth gate.
 
 ### Automated demo preparation
