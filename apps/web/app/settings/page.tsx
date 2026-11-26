@@ -63,6 +63,10 @@ export default function Page() {
       <h1>Privacy settings</h1>
       <section>
         <h2>Account preferences</h2>
+        <p>
+          Choose the region used in your journal and which services may process
+          your purchase information.
+        </p>
         <Preferences
           settings
           onEntry={() => location.assign("/vault")}
@@ -90,11 +94,13 @@ export default function Page() {
         <dl>
           <dt>Receipt extraction</dt>
           <dd>
-            Manual review is available. Free inference awaits verification.
+            Review receipt suggestions before confirming a purchase. Extraction
+            depends on consent and the tools available on this installation.
           </dd>
           <dt>Merchant policy research</dt>
           <dd>
-            Live research awaits a verified Sprite-scoped Tavily connection.
+            Merchant policy lookup needs your permission and a configured Sprite
+            connection.
           </dd>
           <dt>Provider spending</dt>
           <dd>

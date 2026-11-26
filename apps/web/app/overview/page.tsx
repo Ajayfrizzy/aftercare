@@ -9,6 +9,7 @@ type Attention = {
   source: string;
   state: string;
   reason: string;
+  deadline?: string;
   nextCheckAt: string | null;
 };
 type Summary = {
@@ -101,7 +102,7 @@ export default function Overview() {
                     {e.potentialRefund?.currency}) · receipt unconfirmed
                     {" · "}Promised by{" "}
                     <time dateTime={e.potentialRefund?.dueAt}>
-                      {e.potentialRefund?.dueAt}
+                      {new Date(e.potentialRefund!.dueAt).toLocaleString()}
                     </time>
                     {" · "}
                     <a
@@ -150,6 +151,30 @@ export default function Overview() {
             )}
           </section>
           <section>
+            <h2>Protection deadlines</h2>
+            {summary.records
+              .filter((e) => e.deadline && Date.parse(e.deadline) >= Date.now())
+              .sort((a, b) => Date.parse(a.deadline!) - Date.parse(b.deadline!))
+              .slice(0, 5)
+              .map((e) => (
+                <p key={e.id}>
+                  <Link href={"/protection#observation-" + e.id}>
+                    {e.merchant}
+                  </Link>
+                  {" · "}
+                  <time dateTime={e.deadline}>
+                    {new Date(e.deadline!).toLocaleString()}
+                  </time>
+                </p>
+              ))}
+            {!summary.records.some(
+              (e) => e.deadline && Date.parse(e.deadline) >= Date.now(),
+            ) && (
+              <p>
+                No upcoming deadlines. Open a purchase to record its return or
+                warranty terms.
+              </p>
+            )}
             <h2>Upcoming checks</h2>
             {summary.records
               .filter((e) => e.nextCheckAt)

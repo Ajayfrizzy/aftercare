@@ -672,13 +672,14 @@ export default function Vault() {
                           </span>
                           <h2>{p.merchant}</h2>
                         </div>
+
+                        <p>
+                          {p.date} · {p.items.map((i) => i.name).join(", ")}
+                        </p>
                         <Protection
                           purchase={p}
                           onSaved={() => setRevision((v) => v + 1)}
                         />
-                        <p>
-                          {p.date} · {p.items.map((i) => i.name).join(", ")}
-                        </p>
                         <details className="purchase-detail">
                           <summary>Purchase details</summary>
                           {savedId === p.id && (

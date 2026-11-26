@@ -50,7 +50,14 @@ export default function ActivityPage() {
         <>
           <section>
             <h2>Protection checks</h2>
-            {!data.jobs.length && <p>No checks recorded.</p>}
+            {!data.jobs.length && (
+              <p>
+                No checks recorded.{" "}
+                <Link href="/vault">
+                  Choose a purchase to record its first check.
+                </Link>
+              </p>
+            )}
             {data.jobs.map((j) => (
               <article id={"job-" + j.id} key={j.id}>
                 <strong>
@@ -65,9 +72,15 @@ export default function ActivityPage() {
                           : "Scheduled"}
                 </strong>
                 <p>
-                  {j.attempts} attempts · Due{" "}
-                  {new Date(j.due_at).toLocaleString()}
+                  {j.reason ?? "Review the recorded " + j.kind + " evidence."}
                 </p>
+                <details>
+                  <summary>Timing and attempts</summary>
+                  <p>
+                    {j.attempts} attempts · Due{" "}
+                    {new Date(j.due_at).toLocaleString()}
+                  </p>
+                </details>
                 <details>
                   <summary>Why this {j.kind} check runs</summary>
                   <p>

@@ -5,14 +5,15 @@ import { test as base } from "@playwright/test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-export const test = base.extend<{ localApi: void }>({
+export const test = base.extend<{ localApi: void; journalPath: string }>({
+  journalPath: [":memory:", { option: true }],
   localApi: [
     // biome-ignore lint/correctness/noEmptyPattern: Playwright requires destructuring fixture dependencies even when none are used.
-    async ({}, use) => {
+    async ({ journalPath }, use) => {
       const root = mkdtempSync(join(tmpdir(), "aftercare-browser-"));
       process.env.PRIVATE_UPLOAD_DIR = root;
       process.env.APP_BASE_URL = "http://127.0.0.1:3100";
-      const app = createApp(":memory:", process.env.M0_PASSWORD ?? "");
+      const app = createApp(journalPath, process.env.M0_PASSWORD ?? "");
       const flag = process.env.M0_FAULT_FILE;
       let calls = 0;
       app.addHook("onRequest", async (_req, reply) => {

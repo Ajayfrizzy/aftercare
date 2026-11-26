@@ -4,8 +4,8 @@ export default function Landing() {
     <>
       <h1>Your purchases deserve a second look.</h1>
       <p>
-        A personal journal for receipts, return windows, and the evidence behind
-        a claim.
+        Keep the original receipt, see when a promise comes due, and build a
+        claim from the evidence. You review the letter and choose what to share.
       </p>
       <Link href="/journal" prefetch={false}>
         Open private demo →

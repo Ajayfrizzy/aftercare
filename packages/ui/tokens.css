@@ -485,12 +485,15 @@ section {
 }
 @supports (appearance: base-select) {
   .protection-filter select,
+  /* biome-ignore lint/correctness/noUnknownPseudoElement: Native customizable select inside its feature query. */
   .protection-filter select::picker(select) {
     appearance: base-select;
   }
+  /* biome-ignore lint/correctness/noUnknownPseudoElement: Native customizable select inside its feature query. */
   .protection-filter select::picker-icon {
     color: var(--accent);
   }
+  /* biome-ignore lint/correctness/noUnknownPseudoElement: Native customizable select inside its feature query. */
   .protection-filter select::picker(select) {
     margin-block-start: 0.25rem;
     padding: 0.3rem;
@@ -507,5 +510,83 @@ section {
   .protection-filter option:is(:checked, :hover, :focus-visible) {
     color: var(--accent);
     background: var(--surface);
+  }
+}
+/* Reading rhythm shared by the journal, evidence studio and case workspace. */
+.workspace .vault h1 {
+  font-size: clamp(2.5rem, 5vw, 4.6rem);
+  max-width: 22ch;
+}
+.workspace .vault h2 {
+  line-height: 1.22;
+  letter-spacing: -0.025em;
+}
+.workspace .vault section,
+.workspace .purchase-cards > article {
+  border: 1px solid color-mix(in srgb, var(--ink) 15%, transparent);
+}
+.workspace .vault .purchase-cards {
+  border: 0;
+}
+.workspace .vault summary {
+  cursor: pointer;
+  padding-block: 0.65rem;
+  font-weight: 650;
+}
+.workspace .vault details[open] > summary {
+  color: var(--accent);
+}
+.workspace .summary-grid a {
+  border-inline-start: 3px solid var(--accent);
+  align-content: start;
+}
+.workspace .summary-grid a:hover {
+  text-decoration: underline;
+}
+.workspace .journal-find li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  padding: 1rem;
+  border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
+  border-radius: 12px;
+}
+.workspace .journal-find li > a {
+  background: transparent;
+  color: var(--accent);
+  padding: 0;
+  justify-self: start;
+  text-decoration: underline;
+}
+.workspace .journal-find li > time {
+  font-size: 0.875rem;
+}
+.workspace .journal-find li:has(button) {
+  background: var(--surface);
+}
+.workspace .vault p > a,
+.workspace .vault article > a {
+  background: transparent;
+  color: var(--accent);
+  text-decoration: underline;
+  padding-inline: 0.25rem;
+}
+.workspace .vault select,
+.workspace .vault textarea {
+  max-inline-size: 100%;
+  min-height: 44px;
+  font: inherit;
+  color: var(--ink);
+  background-color: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 0.65rem;
+  padding: 0.55rem;
+}
+.workspace .vault output:empty {
+  display: none;
+}
+@media (max-width: 600px) {
+  .workspace .journal-find li {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

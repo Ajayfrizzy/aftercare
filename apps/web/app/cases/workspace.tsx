@@ -103,11 +103,18 @@ export function CaseWorkspace({
       <h1>{approvalsOnly ? "Approval center" : "Recovery cases"}</h1>
       <output>{message}</output>
       {!cases.some((c) => !approvalsOnly || c.draft) && !message && (
-        <p>
-          {approvalsOnly
-            ? "No saved drafts to review."
-            : "No issues currently require a claim."}
-        </p>
+        <section className="empty-state">
+          <p>
+            {approvalsOnly
+              ? "No saved drafts to review."
+              : "No issues currently require a claim."}
+          </p>
+          <Link href={approvalsOnly ? "/cases" : "/vault"}>
+            {approvalsOnly
+              ? "Open a case to prepare a draft"
+              : "Review purchase evidence"}
+          </Link>
+        </section>
       )}
       {cases
         .filter((c) => !approvalsOnly || c.draft)

@@ -114,6 +114,15 @@ export default function ProtectionCenter() {
                         {new Date(e.deadline).toLocaleString()}
                       </p>
                     )}
+                    <p>
+                      {state === "attention"
+                        ? "Review the evidence and open the linked purchase to check for a recovery case."
+                        : state === "unknown"
+                          ? "Compare the source with your receipt and add missing evidence."
+                          : state === "closed"
+                            ? "Keep the source with your purchase for future reference."
+                            : "Review the terms again if the merchant changes its commitment."}
+                    </p>
                     <a href={e.source} rel="noreferrer" target="_blank">
                       Evidence source
                     </a>{" "}

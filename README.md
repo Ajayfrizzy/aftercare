@@ -46,3 +46,7 @@ The permanent project directory is ~/Desktop/aftercare. The full application run
 ## Owner acceptance candidate
 
 Mobile and desktop browser checks cover tag edits, search after reload, additional original receipts, duplicate handling and private access. Refund revision history shows prior states and citations. TXT, JSON, PDF and unsent EML exports were inspected locally. Comparable-price rules have fixture coverage. A live comparable offer, trusted settlement confirmation and independent private scheduled wake remain open. See the [final verification matrix](docs/evidence/M5.md).
+
+### Try the private acceptance journal
+
+Run `pnpm acceptance` to explore a signed-in synthetic purchase, disputed refund and attachment-bearing approval in the real app. The temporary session uses a separate SQLite journal and receipt directory. Follow the [three-step owner walkthrough](docs/owner-acceptance.md) and use Resume to finish.

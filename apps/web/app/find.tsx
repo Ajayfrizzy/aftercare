@@ -78,7 +78,14 @@ export default function Find() {
             <Link href={h.href}>{h.label}</Link>
             {h.id && (
               <>
-                <time>{h.stamp}</time>
+                <time dateTime={h.stamp}>
+                  {h.stamp &&
+                    new Date(
+                      h.stamp.includes("T")
+                        ? h.stamp
+                        : h.stamp.replace(" ", "T") + "Z",
+                    ).toLocaleString()}
+                </time>
                 <span>{h.seen ? "Read" : "Unread"}</span>
                 <button
                   type="button"
