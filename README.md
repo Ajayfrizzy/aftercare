@@ -1,64 +1,150 @@
 # Aftercare
 
-A receipt usually lands in one inbox, a return policy lives on another site, and a promised refund can slip past its due date. Aftercare keeps the purchase, the evidence and the next decision together in a private journal. When a delivery is overdue, you can trace the case back to the original receipt, correct the facts, review the proposed letter and export exactly what you approved.
+**Your purchases deserve a second look.**
 
-**Watch the 3:23 synthetic product film** · [Download MP4](docs/aftercare-demo.mp4) · [Illustrated walkthrough and transcript](docs/demo.md) · [English captions](docs/aftercare-demo.vtt)
+After checkout, receipts are scattered across inboxes, return deadlines slip by, warranty details disappear, and refund commitments are difficult to follow. **Aftercare** keeps purchases, evidence, protection checks, and recovery decisions together in a private journal—and helps turn an actionable issue into an evidence-backed claim the owner can review and export.
 
-## From receipt to recovery
+![Aftercare demo cover: receipts, protection, and recovery](docs/media/aftercare-thumbnail.jpg)
 
-1. Register, choose regional settings and decide whether to allow receipt extraction and external research.
-2. Import a receipt or enter a purchase. Consented plain-text uploads can produce editable Workers AI candidates. During a real upload the model read EUR 12.45 as 12 minor units. The owner corrected it to 1245. The journal retained the prediction and the correction. On macOS with Swift installed, Aftercare reads embedded PDF text and uses Apple Vision for scanned pages and JPG/PNG photos. If Workers AI supplies no candidates, local rules suggest recognizable printed fields for review. The deployed Linux Sprite uses manual review for images and PDFs. The Apple extraction path is available locally on macOS. PDFs are limited to 12 pages and extraction to 8,000 characters.
-   Tag purchases and attach additional original receipts from purchase details. Refund revisions retain the previous source and recorded state. Owner confirmation is separate from trusted settlement evidence.
-3. Track return and warranty windows, comparable prices, recalls, deliveries and refund promises. Review source URLs, observation times and uncertainty before acting. A merchant promise alone cannot establish that money reached your account.
-4. Review an evidence-linked recovery case. Select receipts, inspect the recipient and letter redactions, then authorize a specific draft. Receipt attachments retain their original bytes. Text, JSON, PDF and email-draft exports consume a single approval and record `exported_not_sent`.
-5. Inspect follow-ups and audit history in the activity view. Overdue work catches up after wake. Independent scheduled wake of a cold private Sprite remains a mandatory release blocker.
+**Watch the 3:23 cinematic demo:** [Video (MP4)](docs/aftercare-demo.mp4) · [Illustrated walkthrough and timestamped transcript](docs/demo.md) · [English subtitles (WebVTT)](docs/aftercare-demo.vtt)
 
-## Inside the application
+**Built for Fly.io Hacksgiving 2026** · Running on a private Fly.io Sprite · Official Sprite-scoped **Tavily** connector · Owner-approved actions · Synthetic demonstration data
 
-The Next.js frontend talks to an owner-scoped Fastify API. A single writable SQLite database holds purchases, observations, job leases, drafts, approvals and audit events. Private receipt files retain their byte identities. The worker checkpoints progress and uses durable deduplication across restarts. Session checks, origin checks, private receipt routes and content-bound approvals protect the transition from a model suggestion to an owner action.
+> **Judging access:** The production journal remains private and admin-only. The film, transcript, code, and verification records are intended to be accessible when this repository is published. No login is required to review those materials.
 
-| Integration | Demonstrated behavior |
+## The problem and the approach
+
+A receipt alone does not protect a purchase. The relevant return terms may live on a retailer's website; warranty coverage may be tied to one item; a recall may depend on a model or serial batch; an overdue delivery or refund may require correspondence and proof.
+
+Aftercare combines a **durable purchase record**, **source-aware protection intelligence**, and a **controlled recovery workflow**. Its agent can evaluate recorded obligations and preserve follow-up work across service restarts. External information is tagged with sources, freshness and uncertainty rather than silently promoted to fact. A suggested claim cannot be dispatched as though it were approved or sent: the owner reviews the exact content and attachments, then explicitly authorizes an export.
+
+## What the product does
+
+| Capability | What the user can inspect or control |
 |---|---|
-| Fly.io Sprites | Real API and worker execution, persistent receipt storage and operator-triggered cold recovery |
-| Tavily | Live search and extraction through a default-deny Sprite grant scoped to the two required endpoints. A retrieved policy still requires an applicability judgment. |
-| Workers AI | Genuine consented text receipt upload. Merchant website extraction has local regression coverage only. Manual review remains available when inference fails. |
-| US CPSC | Official notices with retrieval times. Recall 26-372 has model and serial-batch evaluation. Generic product-name matches remain candidates. |
+| **Receipt vault** | Upload and keep original receipts; confirm editable extraction candidates; correct line items; attach more originals; tag, search and organize purchases |
+| **Return and warranty protection** | Record source-backed policy evidence, calculate time windows, and review upcoming or elapsed deadlines |
+| **Merchant-policy research** | Research policies using the official Tavily Sprite connector, with scope checks and source references; ambiguous applicability stays unverified |
+| **Price opportunities** | Evaluate narrowly matched comparable offers by SKU, condition, merchant, currency and freshness; live comparable-offer verification is not yet established |
+| **Product recalls** | Compare relevant product identifiers against US CPSC notices, including model/serial-specific evaluation where available |
+| **Delivery and refund issues** | Record missed deliveries, refund promises, processing/disputed revisions, due dates and follow-ups without inventing courier or bank confirmations |
+| **Recovery and claims** | Open evidence-linked cases, edit drafts, select original attachments, review redactions and recipients, and export TXT, JSON, PDF or an unsent email draft |
+| **Private, auditable execution** | Owner-scoped sessions, source-linked history, durable jobs and retries, privacy controls, receipt integrity and single-use exact-version approval |
 
-The release evidence includes private Sprite execution, connector observations, corrected inference, single-use export and an offline restore drill using two synthetic owners. The audit chain detects changes relative to its stored head. A database writer can reconstruct it. The owner passed all 24 local acceptance checks. Independent private wake remains open. [M5 evidence](docs/evidence/M5.md) · [Architecture decisions](docs/00-decisions.md) · [Product scope](docs/01-product-requirements.md)
+## See the complete journey
 
-## Run Aftercare locally
+```mermaid
+flowchart LR
+    A[Upload or record purchase] --> B[Review and confirm facts]
+    B --> C[Track protections and evidence]
+    C --> D{Issue needs action?}
+    D -->|Yes| E[Evidence-linked recovery case]
+    E --> F[Edit draft and choose receipts]
+    F --> G[Approve exact version]
+    G --> H[One-time claim export]
+    H --> I[Record unsent export and follow-up]
+    D -->|No| J[Keep monitoring while active]
+```
 
-From the repository root, use Node 24.22.1 and pnpm 9.15.9.
+The [cinematic product film](docs/aftercare-demo.mp4) follows one **clearly synthetic** notebook purchase: receipt review and correction → saved purchase → return/warranty checks → missed-delivery case → versioned claim → attachment selection → approval and JSON download → `exported_not_sent` → rejected approval replay (`HTTP 409`) → refund dispute and follow-up.
 
-```sh
+The demo mixes actual local UI recordings with clearly labeled historical evidence for external integrations and Sprite recovery. It does not present simulated merchant activity as a live provider response.
+
+## Real architecture and integrations
+
+```mermaid
+flowchart TD
+    U[Owner browser] --> W[Next.js frontend on private Fly.io Sprite]
+    W --> A[Loopback Fastify API]
+    A --> DB[(SQLite: owners, purchases, cases, jobs, audit)]
+    A --> R[(Private original-receipt storage)]
+    A --> AG[Durable agent worker and policy checks]
+    A --> AI[Consented Workers AI text extraction]
+    AG --> T[Official Sprite-scoped Tavily connector: search / extract]
+    AG --> C[US CPSC recall data]
+    AG --> AP[Review and single-use approval]
+    AP --> X[Owner-initiated unsent export]
+```
+
+**Fly.io Sprites:** The private release was verified running a Fastify API, frontend, worker and persistent receipt storage. Authentication, original receipt bytes after a service restart, and operator-triggered recovery were checked. The journal API is restricted to loopback behind the frontend and the private edge restricts access.
+
+**Official Tavily connector:** Search/extract were verified through a restricted Sprite grant. Retrieved sources are still subject to merchant/jurisdiction/applicability checks. A later release-specific lookup returned HTTP 200 but retained zero policy references; it is not evidence of a new positive policy match.
+
+**Cloudflare Workers AI:** A consented plain-text receipt inference was observed; the suggested amount was incorrect and the owner corrected it before confirmation. This is intentional human oversight, not an accuracy guarantee. Merchant website extraction has local regression coverage only.
+
+**CPSC:** Real notices were retrieved and source-linked, with documented model and serial-batch classification for notice 26-372. Generic name matches remain candidates, not definitive affected-unit confirmations.
+
+**Important:** Independent *scheduled* wake of a cold private Sprite has **not been verified**. Work persists and catches up after wake, but the system should not be represented as guaranteeing unattended deadline-time wakeups.
+
+[Architecture specification](docs/02-system-architecture.md) · [Approved decisions](docs/00-decisions.md) · [Deployment and operations](docs/10-deployment-operations.md) · [Live integration evidence](docs/evidence/M5.md)
+
+## Trust model
+
+- **Owner control:** Receipt extraction and external research require consent. Purchases, source documents, cases and approvals are owner-scoped.
+- **Facts before actions:** Suggestions carry provenance and may be corrected; a merchant promise does not prove a refund arrived.
+- **Exact-version approval:** An approval is bound to claim content and recipient and can be used once; editing requires new authorization.
+- **Honest export status:** Downloading claim files records `exported_not_sent`. Aftercare does **not** claim to have emailed the merchant.
+- **Original evidence:** Selected receipt originals are preserved as original bytes; text redaction does not silently modify original attachments.
+- **Recovery safeguards:** Durable jobs, bounded retry behavior, audit records, integrity checks and explicit restart/restore procedures are documented. Historical snapshot rollback requires reconciliation before external effects resume.
+
+[Security and privacy design](docs/06-security-privacy.md) · [Agent state machine](docs/04-agent-state-machine.md) · [Operational recovery](docs/10-deployment-operations.md)
+
+## Verification snapshot
+
+These are historical results from the accepted release—not claims that new tests ran during documentation preparation.
+
+| Evidence | Reported / observed result |
+|---|---|
+| Owner acceptance | **24/24** checks passed, owner-reported |
+| Application tests | **31/31** passed |
+| Playwright browser tests | **20/20** passed |
+| Production build | Passed |
+| Private Sprite | Authenticated API and worker execution; receipt persistence across service restart |
+| Connector and extraction | Earlier live Tavily search/extract and Workers AI text-receipt inference |
+| Security workflow | Single-use approved claim export and replay rejection (`HTTP 409`) |
+
+Release lineage: accepted application baseline `3128f7d`; private deployed revision `90f91c9`; cinematic film revision `a8be741`; documentation/privacy cleanup `8cb31e2`. See the [M0–M6 evidence index](docs/evidence/README.md), [M5 integration record](docs/evidence/M5.md), and [M6 release record](docs/evidence/M6.md).
+
+## Run locally
+
+**Requirements:** Node.js **24.22.1**, pnpm **9.15.9**; Google Chrome for the headed disposable acceptance session. From the repository root:
+
+```bash
 pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Open **http://127.0.0.1:3000/vault**. Select **Create an account**, enter an email and a password of at least 12 characters, and select **Create account**. Returning users enter their credentials and select **Sign in**. Use the exact origin above for the session and origin checks.
+Open <http://127.0.0.1:3000/vault> to create an account (password at least 12 characters) or sign in. The launcher starts Next.js on port 3000 and the Fastify API on loopback port 3101. SQLite is created/migrated automatically. Account records persist at `apps/api/aftercare.sqlite`, with default private uploads at `apps/api/private-uploads/`. Shut down with Ctrl-C; restart after API source changes. No environment variables are required for the standard launcher.
 
-The launcher starts Next.js on port 3000 and Fastify on loopback port 3101. The API creates and migrates SQLite on startup. Accounts and purchases persist in `apps/api/aftercare.sqlite`; uploads default to `apps/api/private-uploads/`. Ctrl-C stops both processes. Restart after API code changes.
+For the separate, read-only demonstration journal, set a private `DEMO_SECRET` of at least 32 characters before startup; the Basic username is `demo`. The default development launcher otherwise creates a temporary secret. `SQLITE_PATH` and `PRIVATE_UPLOAD_DIR` accept absolute paths; keep custom storage outside tracked project paths.
 
-No environment variables are required with the launcher. It sets APP_BASE_URL and generates a temporary DEMO_SECRET. For the separate read-only journal, set DEMO_SECRET to a private password of at least 32 characters before startup and use Basic username demo. SQLITE_PATH and PRIVATE_UPLOAD_DIR accept absolute override paths.
+If starting the services separately, export `DEMO_SECRET`, run `APP_BASE_URL=http://127.0.0.1:3000 pnpm --filter @aftercare/api start` from the repository root, and start Next.js with `pnpm --filter @aftercare/web dev --webpack --hostname 127.0.0.1 --port 3000`. Keep both ports available. See [safe local port troubleshooting](docs/10-deployment-operations.md#local-port-troubleshooting).
 
-For separate terminals, start the API from the root with `APP_BASE_URL=http://127.0.0.1:3000 pnpm --filter @aftercare/api start` after exporting DEMO_SECRET. Start the frontend with `pnpm --filter @aftercare/web dev --webpack --hostname 127.0.0.1 --port 3000`. Keep both ports free.
+### Existing local owner profile
 
-For an occupied port, follow the [local port troubleshooting steps](docs/10-deployment-operations.md#local-port-troubleshooting).
+If you already have accounts created during the earlier M2 local work, stop the default launcher and run `pnpm dev --m2-data`, then open <http://127.0.0.1:3120/vault>. This selects the legacy data profile, not a different product release. A fresh clone normally uses `pnpm dev`.
 
-### Existing owner accounts in the legacy profile
+### Try the synthetic acceptance journey
 
-The permanent owner checkout is ~/Desktop/aftercare. The full application runs with pnpm dev. For accounts created in the former M2 worktree, stop the default launcher and run `pnpm dev --m2-data` and open http://127.0.0.1:3120/vault. Both profiles use the same application code and keep their existing local accounts.
+```bash
+pnpm acceptance
+```
 
-## Local owner acceptance
+A headed Chrome/Playwright session opens a **separate disposable SQLite database and receipt directory**, with a synthetic account and purchase. It is isolated from normal local accounts. See the [owner acceptance walkthrough](docs/owner-acceptance.md). Use **Resume** in Playwright Inspector to finish and reset by running the command again.
 
-Mobile and desktop browser checks cover tag edits, search after reload, additional original receipts, duplicate handling and private access. Refund revision history shows prior states and citations. TXT, JSON, PDF and unsent EML exports were inspected locally. Comparable-price rules have fixture coverage. A live comparable offer, trusted settlement confirmation and independent private scheduled wake remain open. See the [final verification matrix](docs/evidence/M5.md).
+## Known limitations and scope
 
-The accepted runtime baseline is `3128f7d`, with 31 application tests and 20 browser tests passed. [Short illustrated demo](docs/demo.md) · [Release inventory](docs/evidence/M6.md)
+- **Private deployment:** The live journal is owner/admin restricted. The public submission consists of code, the video and supporting documentation rather than an anonymous production login.
+- **Cold wake:** Independent scheduled wake of an inactive private Sprite remains unverified; overdue work catches up after a wake.
+- **Receipt extraction:** Plain-text AI assistance was live verified. On supported macOS environments, Swift/Apple Vision helps with PDF and image extraction; the deployed Linux Sprite requires manual review for image/PDF receipts. PDF extraction is limited to 12 pages / 8,000 characters where supported.
+- **Price and refund claims:** No verified live comparable-price feed or trusted provider-confirmed settlement integration. Owner-reported status is labeled accordingly.
+- **Claim delivery:** Authorized claims can be exported in multiple formats. Downloads are **not** merchant sends, and external resolution requires supporting evidence.
+- **CPSC coverage:** US-oriented official sources; ambiguous products and identifiers require further verification.
 
-### Try the private acceptance journal
+## Documentation
 
-Install Google Chrome for this headed Playwright session. Run `pnpm acceptance` to explore a signed-in synthetic purchase, disputed refund and attachment-bearing approval in the real app. The temporary session uses a separate SQLite journal and receipt directory. Follow the [three-step owner walkthrough](docs/owner-acceptance.md) and use Resume to finish.
+[Product requirements](docs/01-product-requirements.md) · [Architecture](docs/02-system-architecture.md) · [API contracts](docs/05-api-contracts.md) · [UI and design system](docs/07-ui-ux-design-system.md) · [Testing strategy](docs/08-test-strategy.md) · [Deployment operations](docs/10-deployment-operations.md) · [Demo/submission](docs/12-demo-and-submission.md) · [Evidence index](docs/evidence/README.md) · [Release checklist](docs/evidence/M6.md)
 
-## Private deployment and evidence
+---
 
-The verified release runs on a private, admin-only Sprite. Judges can follow the film and illustrated walkthrough once the repository is published. The journal API listens on loopback behind the frontend. [System architecture](docs/02-system-architecture.md) · [Private operations and storage](docs/10-deployment-operations.md) · [Milestone evidence index](docs/evidence/README.md)
+*Aftercare is an evidence-driven personal protection agent. It supports human decisions; it does not fabricate policy rights, payment confirmations or sent communications.*
