@@ -2,7 +2,7 @@
 
 A receipt usually lands in one inbox, a return policy lives on another site, and a promised refund can slip past its due date. Aftercare keeps the purchase, the evidence and the next decision together in a private journal. When a delivery is overdue, you can trace the case back to the original receipt, correct the facts, review the proposed letter and export exactly what you approved.
 
-**Watch the 2:24 synthetic product film** · [Download MP4](docs/aftercare-demo.mp4) · [Illustrated walkthrough and transcript](docs/demo.md) · [English captions](docs/aftercare-demo.vtt)
+**Watch the 3:23 synthetic product film** · [Download MP4](docs/aftercare-demo.mp4) · [Illustrated walkthrough and transcript](docs/demo.md) · [English captions](docs/aftercare-demo.vtt)
 
 ## From receipt to recovery
 
